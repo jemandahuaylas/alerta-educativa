@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import type { UserProfile } from '@/core/domain/types';
 import { Mail, Info } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useKeyboardScrollViewport } from '@/hooks/use-keyboard-scroll';
 
 type TeacherDetailsModalProps = {
   isOpen: boolean;
@@ -21,11 +22,12 @@ export function TeacherDetailsModal({
   teacher,
   assignments,
 }: TeacherDetailsModalProps) {
+  const containerRef = useKeyboardScrollViewport();
   if (!teacher) return null;
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md">
+      <ResponsiveDialogContent ref={containerRef} className="sm:max-w-md">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{teacher.name}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>

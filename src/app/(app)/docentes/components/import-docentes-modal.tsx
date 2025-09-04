@@ -9,6 +9,7 @@ import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogDescription,
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { UserProfile } from '@/core/domain/types';
+import { useKeyboardScrollViewport } from '@/hooks/use-keyboard-scroll';
 
 type ImportModalProps = {
   isOpen: boolean;
@@ -28,6 +29,7 @@ type ValidationResult = {
 const PREVIEW_ROW_LIMIT = 5;
 
 export function ImportDocentesModal({ isOpen, onOpenChange, onImport }: ImportModalProps) {
+  const containerRef = useKeyboardScrollViewport();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -188,7 +190,7 @@ export function ImportDocentesModal({ isOpen, onOpenChange, onImport }: ImportMo
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={handleModalClose}>
-      <ResponsiveDialogContent className="sm:max-w-3xl">
+      <ResponsiveDialogContent ref={containerRef} className="sm:max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Importar Docentes</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>

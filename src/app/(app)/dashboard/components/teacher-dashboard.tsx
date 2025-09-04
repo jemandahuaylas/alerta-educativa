@@ -26,20 +26,43 @@ export default function TeacherDashboard() {
   const { assignedSections, totalStudents, totalIncidents } = useMemo(() => {
     if (!currentUserProfile) return { assignedSections: [], totalStudents: 0, totalIncidents: 0 };
 
-    const myAssignments = assignments.filter(a => a.teacher_id === currentUserProfile.id);
-    const mySectionIds = new Set(myAssignments.map(a => a.section_id));
-    
-    const assignedSections = grades.flatMap(grade => 
-        grade.sections
-            .filter(section => mySectionIds.has(section.id))
-            .map(section => ({ gradeName: grade.name, sectionName: section.name, gradeId: grade.id, sectionId: section.id }))
-    ).sort((a,b) => `${a.gradeName} ${a.sectionName}`.localeCompare(`${b.gradeName} ${b.sectionName}`));
+    // Verificar si es un rol administrativo que debe ver todas las secciones
+    const isAdminRole = currentUserProfile.role === 'Director' || 
+                       currentUserProfile.role === 'Subdirector' || 
+                       currentUserProfile.role === 'Coordinador';
 
-    const studentsInMySections = students.filter(s => mySectionIds.has(s.sectionId));
-    const incidentsInMySections = incidents.filter(i => {
-        const student = students.find(s => s.id === i.studentId);
-        return student && mySectionIds.has(student.sectionId);
-    });
+    let assignedSections, studentsInMySections, incidentsInMySections;
+
+    if (isAdminRole) {
+      // Los roles administrativos ven todas las secciones
+      assignedSections = grades.flatMap(grade => 
+        grade.sections.map(section => ({ 
+          gradeName: grade.name, 
+          sectionName: section.name, 
+          gradeId: grade.id, 
+          sectionId: section.id 
+        }))
+      ).sort((a,b) => `${a.gradeName} ${a.sectionName}`.localeCompare(`${b.gradeName} ${b.sectionName}`));
+      
+      studentsInMySections = students;
+      incidentsInMySections = incidents;
+    } else {
+      // Solo docentes y auxiliares tienen restricciones por asignación
+      const myAssignments = assignments.filter(a => a.teacher_id === currentUserProfile.id);
+      const mySectionIds = new Set(myAssignments.map(a => a.section_id));
+      
+      assignedSections = grades.flatMap(grade => 
+          grade.sections
+              .filter(section => mySectionIds.has(section.id))
+              .map(section => ({ gradeName: grade.name, sectionName: section.name, gradeId: grade.id, sectionId: section.id }))
+      ).sort((a,b) => `${a.gradeName} ${a.sectionName}`.localeCompare(`${b.gradeName} ${b.sectionName}`));
+
+      studentsInMySections = students.filter(s => mySectionIds.has(s.sectionId));
+      incidentsInMySections = incidents.filter(i => {
+          const student = students.find(s => s.id === i.studentId);
+          return student && mySectionIds.has(student.sectionId);
+      });
+    }
 
     return { 
         assignedSections, 

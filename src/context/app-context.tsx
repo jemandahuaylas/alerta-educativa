@@ -108,14 +108,75 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeApp = async () => {
       setIsLoading(true);
-      const currentSession = await authService.getSession();
-      setSession(currentSession);
+      try {
+        const currentSession = await authService.getSession();
+        setSession(currentSession);
 
-      // Fetch data regardless of session for public pages, but restrict sensitive data if not logged in.
-      const appData = await getAllData();
-      setData(appData);
-      
-      setIsLoading(false);
+        // Fetch data regardless of session for public pages, but restrict sensitive data if not logged in.
+        try {
+          const appData = await getAllData();
+          setData(appData);
+        } catch (error: any) {
+          console.error('Error fetching app data:', error);
+          if (error.name === 'TimeoutError') {
+            console.warn('⏰ App data fetch timed out, retrying with fallback data...');
+            // Set minimal data to prevent app crash
+            setData({
+              students: [],
+              grades: [],
+              assignments: [],
+              incidents: [],
+              incidentTypes: [],
+              permissions: [],
+              permissionTypes: [],
+              nees: [],
+              neeDiagnosisTypes: [],
+              dropouts: [],
+              dropoutReasons: [],
+              risks: [],
+              settings: { 
+                isRegistrationEnabled: false,
+                appName: "Alerta Educativa",
+                institutionName: "Mi Institución",
+                logoUrl: "",
+                primaryColor: "#1F618D",
+                isDriveConnected: false
+              },
+              profiles: []
+            });
+          } else {
+            throw error;
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        // Set empty data to prevent app crash
+        setData({
+          students: [],
+          grades: [],
+          assignments: [],
+          incidents: [],
+          incidentTypes: [],
+          permissions: [],
+          permissionTypes: [],
+          nees: [],
+          neeDiagnosisTypes: [],
+          dropouts: [],
+          dropoutReasons: [],
+          risks: [],
+          settings: { 
+            isRegistrationEnabled: false,
+            isDriveConnected: false,
+            appName: '',
+            institutionName: '',
+            logoUrl: '',
+            primaryColor: '#000000'
+          },
+          profiles: []
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
     
     initializeApp();
@@ -132,8 +193,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         // Si el usuario se conecta, recargar datos
         else if (event === 'SIGNED_IN' && session) {
-          const appData = await getAllData();
-          setData(appData);
+          try {
+            const appData = await getAllData();
+            setData(appData);
+          } catch (error: any) {
+            console.error('Error fetching app data on sign in:', error);
+            if (error.name === 'TimeoutError') {
+              console.warn('⏰ App data fetch timed out on sign in, using fallback data...');
+              // Keep existing data or set minimal data if none exists
+              if (!data) {
+                setData({
+                  students: [],
+                  grades: [],
+                  assignments: [],
+                  incidents: [],
+                  incidentTypes: [],
+                  permissions: [],
+                  permissionTypes: [],
+                  nees: [],
+                  neeDiagnosisTypes: [],
+                  dropouts: [],
+                  dropoutReasons: [],
+                  risks: [],
+                  settings: { 
+                    isRegistrationEnabled: false,
+                    appName: "Alerta Educativa",
+                    institutionName: "Mi Institución",
+                    logoUrl: "",
+                    primaryColor: "#1F618D",
+                    isDriveConnected: false
+                  },
+                  profiles: []
+                });
+              }
+            }
+          }
         }
       }
     );

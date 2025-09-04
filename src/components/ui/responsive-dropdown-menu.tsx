@@ -154,9 +154,20 @@ const ResponsiveDropdownMenuItem = React.forwardRef<
         variant="ghost"
         className={cn("w-full justify-start gap-2 px-4 py-3 h-auto text-base", className)}
         onClick={(e) => {
+            // Ejecutar onSelect si existe (para compatibilidad con componentes que usan onSelect)
+            if (onSelect) {
+                const syntheticEvent = new Event('select', { bubbles: true, cancelable: true });
+                onSelect(syntheticEvent);
+                if (syntheticEvent.defaultPrevented) {
+                    e.preventDefault();
+                    return;
+                }
+            }
+            // Ejecutar onClick si existe
             if (onClick) {
                 onClick(e as any);
             }
+            // Cerrar el menú si no se previno el comportamiento por defecto
             if (!e.defaultPrevented) {
                 onOpenChange(false);
             }

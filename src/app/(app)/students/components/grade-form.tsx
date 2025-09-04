@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAppContext } from '@/context/app-context';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useKeyboardScrollViewport } from '@/hooks/use-keyboard-scroll';
 import { cn } from '@/lib/utils';
 
 const initialAvailableGrades = ['1ro', '2do', '3ro', '4to', '5to', '6to'];
@@ -21,6 +23,8 @@ type GradeFormProps = {
 
 export default function GradeForm({ isOpen, onOpenChange, onSave, existingGradeNames }: GradeFormProps) {
   const { isLoading } = useAppContext();
+  const isMobile = useIsMobile();
+  const containerRef = useKeyboardScrollViewport();
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [customGrade, setCustomGrade] = useState('');
   const [availableGrades, setAvailableGrades] = useState(() => 
@@ -60,12 +64,18 @@ export default function GradeForm({ isOpen, onOpenChange, onSave, existingGradeN
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center md:items-center"
       onClick={() => onOpenChange(false)}
     >
       {/* Modal */}
       <div 
-        className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 p-6 relative"
+        ref={containerRef}
+        className={cn(
+          "bg-white shadow-2xl w-full max-w-md p-6 relative transition-transform duration-300 ease-out",
+          isMobile 
+            ? "rounded-t-2xl animate-in slide-in-from-bottom-full" 
+            : "rounded-lg mx-4 animate-in fade-in-0 zoom-in-95"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}

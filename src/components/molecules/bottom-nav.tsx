@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from "next/link";
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, User, LayoutGrid, Users, AlertTriangle } from "lucide-react";
+import { Menu, User, LayoutGrid, Users, AlertTriangle, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navItems, settingsNavItem } from './main-nav';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -117,11 +117,23 @@ export function BottomNav() {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
-  const mainNavItems = [
-    { href: "/dashboard", icon: LayoutGrid, label: "Panel" },
-    { href: "/students", icon: Users, label: "Alumnos" },
-    { href: "/incidents", icon: AlertTriangle, label: "Incidentes" },
-  ];
+  const { currentUserProfile } = useAppContext();
+  const isAdminLevel = ['Admin', 'Director', 'Subdirector', 'Coordinador'].includes(currentUserProfile?.role || '');
+  
+  const mainNavItems = useMemo(() => {
+    const baseItems = [
+      { href: "/dashboard", icon: LayoutGrid, label: "Panel" },
+      { href: "/students", icon: Users, label: "Alumnos" },
+      { href: "/incidents", icon: AlertTriangle, label: "Incidentes" },
+    ];
+    
+    // Para usuarios administrativos, agregar el menú Personal
+     if (isAdminLevel) {
+       baseItems.push({ href: "/docentes", icon: UserCheck, label: "Personal" });
+     }
+    
+    return baseItems;
+  }, [isAdminLevel]);
   
   useEffect(() => {
     const controlNavbar = () => {
@@ -159,7 +171,10 @@ export function BottomNav() {
         "fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t md:hidden transition-transform duration-300",
         isVisible ? "translate-y-0" : "translate-y-full"
     )}>
-      <div className="grid h-full max-w-lg grid-cols-5 mx-auto font-medium">
+      <div className={cn(
+        "grid h-full max-w-lg mx-auto font-medium",
+        mainNavItems.length === 3 ? "grid-cols-5" : "grid-cols-6"
+      )}>
         {mainNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (

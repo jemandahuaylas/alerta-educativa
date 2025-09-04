@@ -25,6 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import type { UserProfile, UserProfileFormValues } from '@/core/domain/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useKeyboardScrollViewport } from '@/hooks/use-keyboard-scroll';
 
 const personnelSchema = z.object({
   id: z.string().optional(),
@@ -48,6 +49,7 @@ type DocenteFormProps = {
 };
 
 export function DocenteForm({ isOpen, onOpenChange, onSave, teacher }: DocenteFormProps) {
+  const containerRef = useKeyboardScrollViewport();
   const form = useForm<PersonnelFormValues>({
     resolver: zodResolver(personnelSchema),
     defaultValues: teacher ? {
@@ -78,6 +80,7 @@ export function DocenteForm({ isOpen, onOpenChange, onSave, teacher }: DocenteFo
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent 
+        ref={containerRef}
         className="sm:max-w-[425px]"
         onOpenAutoFocus={(e) => {
             e.preventDefault();

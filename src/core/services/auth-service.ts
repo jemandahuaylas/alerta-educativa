@@ -184,18 +184,27 @@ export const getSession = async () => {
 // --- Profile Management Functions ---
 
 export const getProfiles = async (): Promise<UserProfile[]> => {
-    // Use supabaseAdmin if available (server), otherwise use regular supabase
-    const client = supabaseAdmin || supabase;
-    
-    const { data, error } = await client
-        .from('profiles')
-        .select('id, name, email, role, dni');
+    try {
+        // Use API route to fetch profiles with admin privileges
+        const response = await fetch('/api/profiles', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
 
-    if (error) {
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error fetching profiles via API:', errorData);
+            return [];
+        }
+
+        const result = await response.json();
+        return result.data || [];
+    } catch (error) {
         console.error('Error fetching profiles:', error);
         return [];
     }
-    return data;
 };
 
 export const editProfile = async (profileId: string, profileData: UserProfileFormValues): Promise<UserProfile | null> => {

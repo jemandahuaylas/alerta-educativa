@@ -37,6 +37,8 @@ export async function getAllData(): Promise<AppData> {
   return withCache('app-data', async () => {
     console.log('🔄 Starting getAllData with optimized queries and timeout protection...');
     
+    return withRetry(async () => {
+    
     try {
       // Fetch essential data first with limits to avoid timeout
       const profiles = await withTimeout(
@@ -55,14 +57,14 @@ export async function getAllData(): Promise<AppData> {
           supabase.from('grades').select(`id, name, sections (id, name)`).order('name', { ascending: true }),
           supabase.from('students').select(`id, first_name, last_name, dni, grade_id, section_id`).limit(1000),
           supabase.from('assignments').select(`id, teacher_id, grade_id, section_id`).limit(500),
-          supabase.from('incidents').select(`id, student_id, date, incident_types, status, follow_up_notes, registered_by, attended_by, attended_date`).order('date', { ascending: false }).limit(200),
-          supabase.from('permissions').select(`id, student_id, request_date, permission_types, status`).order('request_date', { ascending: false }).limit(200),
+          supabase.from('incidents').select(`id, date, incident_types, description, status, registered_by, approved_by, approved_at`).order('date', { ascending: false }).limit(200),
+          supabase.from('permissions').select(`id, student_id, date, type, reason, approved_by`).order('date', { ascending: false }).limit(200),
           supabase.from('nee_records').select(`id, student_id, diagnosis, evaluation_date, support_plan`).order('evaluation_date', { ascending: false }).limit(200),
-          supabase.from('dropouts').select(`id, student_id, dropout_date, reason, notes`).order('dropout_date', { ascending: false }).limit(200),
-          supabase.from('risk_factors').select(`id, student_id, category, level, notes`).order('created_at', { ascending: false }).limit(200),
+          supabase.from('dropouts').select(`id, student_id, date, reason, notes, reported_by, created_at, updated_at, deleted_at`).order('date', { ascending: false }).limit(200),
+          supabase.from('risk_factors').select(`id, student_id, factor, description, severity, identified_by, created_at, updated_at, deleted_at`).order('created_at', { ascending: false }).limit(200),
           supabase.from('settings').select('allow_registration, app_name, institution_name, logo_url, primary_color').single(),
         ]),
-        15000, // 15 second timeout for all parallel queries
+        30000, // 30 second timeout for all parallel queries
         'fetch all app data'
       );
       
@@ -110,19 +112,27 @@ export async function getAllData(): Promise<AppData> {
       }));
 
       const { data: incidentsData, error: incidentsError } = incidentsRes;
-      if (incidentsError) console.error('Error fetching incidents:', incidentsError);
+      if (incidentsError) {
+        console.error('Error fetching incidents:', {
+          message: incidentsError.message,
+          details: incidentsError.details,
+          hint: incidentsError.hint,
+          code: incidentsError.code
+        });
+        // Continue with empty array instead of failing
+      }
       const incidents: Incident[] = (incidentsData || []).map((i: any) => ({
           id: i.id,
-          studentId: i.student_id,
-          studentName: studentIdMap.get(i.student_id)?.name ?? 'Estudiante Desconocido',
+          studentId: '', // No hay student_id en la tabla actual
+          studentName: 'Estudiante Desconocido', // Sin student_id no podemos obtener el nombre
           date: i.date,
-          incidentTypes: i.incident_types,
-          status: i.status,
-          followUpNotes: i.follow_up_notes,
+          incidentTypes: i.incident_types || [],
+          status: i.status || 'Pendiente',
+          followUpNotes: i.description, // Usar description como followUpNotes
           registeredBy: i.registered_by,
-          attendedBy: i.attended_by,
-          attendedDate: i.attended_date,
-          attendedById: i.attended_by,
+          attendedBy: i.approved_by,
+          attendedDate: i.approved_at,
+          attendedById: i.approved_by,
       }));
        
        const { data: permissionsData, error: permissionsError } = permissionsRes;
@@ -131,9 +141,9 @@ export async function getAllData(): Promise<AppData> {
            id: p.id,
            studentId: p.student_id,
            studentName: studentIdMap.get(p.student_id)?.name ?? 'Estudiante Desconocido',
-           requestDate: p.request_date,
-           permissionTypes: p.permission_types,
-           status: p.status,
+           requestDate: p.date,
+           permissionTypes: [p.type], // Convertir string a array
+           status: p.approved_by ? 'Aprobado' : 'Pendiente', // Inferir status basado en approved_by
        }));
 
        const { data: neesData, error: neesError } = neesRes;
@@ -153,7 +163,7 @@ export async function getAllData(): Promise<AppData> {
            id: d.id,
            studentId: d.student_id,
            studentName: studentIdMap.get(d.student_id)?.name ?? 'Estudiante Desconocido',
-           dropoutDate: d.dropout_date,
+           dropoutDate: d.date,
            reason: d.reason,
            notes: d.notes,
        }));
@@ -164,9 +174,9 @@ export async function getAllData(): Promise<AppData> {
             id: r.id,
             studentId: r.student_id,
             studentName: studentIdMap.get(r.student_id)?.name ?? 'Estudiante Desconocido',
-            category: r.category,
-            level: r.level,
-            notes: r.notes,
+            category: r.factor,
+            level: r.severity,
+            notes: r.description,
         }));
 
         const { data: settingsData, error: settingsError } = settingsRes;
@@ -192,6 +202,7 @@ export async function getAllData(): Promise<AppData> {
       console.error('❌ Error in getAllData:', error);
       throw error;
     }
+    }, 2, 2000, 'fetch all app data'); // 2 retries with 2 second base delay
   });
 }
 
@@ -474,14 +485,15 @@ export const removeAssignment = async (assignmentId: string): Promise<boolean> =
 
 
 // Incidents
-export const addIncident = async (incidentData: Omit<Incident, 'id' | 'studentName' | 'status' | 'followUpNotes' | 'registeredBy' | 'attendedBy' | 'attendedDate'>, currentUserId: string): Promise<Incident | null> => {
+export const addIncident = async (incidentData: Omit<Incident, 'id' | 'studentName' | 'status' | 'registeredBy' | 'attendedBy' | 'attendedDate'>, currentUserId: string): Promise<Incident | null> => {
     const { data, error } = await supabase
         .from('incidents')
         .insert({
-            student_id: incidentData.studentId,
+            description: incidentData.followUpNotes || 'Incidente registrado',
             date: incidentData.date,
             incident_types: incidentData.incidentTypes,
             registered_by: currentUserId,
+            status: 'Pendiente'
         })
         .select()
         .single();
@@ -493,12 +505,12 @@ export const addIncident = async (incidentData: Omit<Incident, 'id' | 'studentNa
 
     return {
         id: data.id,
-        studentId: data.student_id,
+        studentId: '', // No hay student_id en la tabla actual
         studentName: '', // Will be hydrated in the context
         date: data.date,
         incidentTypes: data.incident_types,
         status: data.status,
-        followUpNotes: data.follow_up_notes,
+        followUpNotes: data.description,
         registeredBy: data.registered_by,
     };
 };
@@ -508,12 +520,12 @@ export const updateIncidentStatus = async (incidentId: string, status: 'Atendido
         .from('incidents')
         .update({ 
             status: status, 
-            follow_up_notes: notes,
-            attended_by: attendedById,
-            attended_date: new Date().toISOString(),
+            description: notes || '',
+            approved_by: attendedById,
+            approved_at: new Date().toISOString(),
         })
         .eq('id', incidentId)
-        .select('status, follow_up_notes, attended_by, attended_date')
+        .select('status, description, approved_by, approved_at')
         .single();
 
     if (error) {
@@ -523,9 +535,9 @@ export const updateIncidentStatus = async (incidentId: string, status: 'Atendido
 
     return { 
         status: data.status, 
-        followUpNotes: data.follow_up_notes,
-        attendedById: data.attended_by,
-        attendedDate: data.attended_date,
+        followUpNotes: data.description,
+        attendedById: data.approved_by,
+        attendedDate: data.approved_at,
     };
 };
 
@@ -549,8 +561,10 @@ export const addPermission = async (permissionData: Omit<Permission, 'id' | 'stu
         .from('permissions')
         .insert({
             student_id: permissionData.studentId,
-            request_date: permissionData.requestDate,
-            permission_types: permissionData.permissionTypes,
+            date: permissionData.requestDate,
+            type: permissionData.permissionTypes[0] || 'Permiso general', // Usar el primer tipo
+            reason: 'Motivo no especificado', // Valor por defecto
+            approved_by: null, // Inicialmente sin aprobar
         })
         .select()
         .single();
@@ -564,25 +578,29 @@ export const addPermission = async (permissionData: Omit<Permission, 'id' | 'stu
         id: data.id,
         studentId: data.student_id,
         studentName: '', // Will be hydrated in the context
-        requestDate: data.request_date,
-        permissionTypes: data.permission_types,
-        status: data.status,
+        requestDate: data.date,
+        permissionTypes: [data.type],
+        status: 'Pendiente',
     };
 };
 
 export const updatePermissionStatus = async (permissionId: string, status: 'Aprobado' | 'Rechazado'): Promise<Partial<Permission> | null> => {
+    const updateData = status === 'Aprobado' 
+        ? { approved_by: '00000000-0000-0000-0000-000000000000' } // ID temporal del usuario que aprueba
+        : { approved_by: null }; // Rechazado = sin aprobar
+    
     const { data, error } = await supabase
         .from('permissions')
-        .update({ status: status })
+        .update(updateData)
         .eq('id', permissionId)
-        .select('status')
+        .select('approved_by')
         .single();
     
     if (error) {
         console.error('Error updating permission status:', error);
         return null;
     }
-    return { status: data.status };
+    return { status: data.approved_by ? 'Aprobado' : 'Rechazado' };
 };
 
 export const addPermissionType = (state: AppData, type: string): AppData => {
@@ -646,9 +664,10 @@ export const addDropout = async (dropoutData: Omit<Dropout, 'id' | 'studentName'
         .from('dropouts')
         .insert({
             student_id: dropoutData.studentId,
-            dropout_date: dropoutData.dropoutDate,
+            date: dropoutData.dropoutDate,
             reason: dropoutData.reason,
             notes: dropoutData.notes,
+            reported_by: '00000000-0000-0000-0000-000000000001' // TODO: Use actual user ID
         })
         .select()
         .single();
@@ -662,7 +681,7 @@ export const addDropout = async (dropoutData: Omit<Dropout, 'id' | 'studentName'
         id: data.id,
         studentId: data.student_id,
         studentName: '', // Will be hydrated in context
-        dropoutDate: data.dropout_date,
+        dropoutDate: data.date,
         reason: data.reason,
         notes: data.notes,
     };
@@ -687,9 +706,10 @@ export const addRiskFactor = async (riskData: RiskFormValues): Promise<RiskFacto
         .from('risk_factors')
         .insert({
             student_id: riskData.studentId,
-            category: riskData.category,
-            level: riskData.level,
-            notes: riskData.notes,
+            factor: riskData.category,
+            severity: riskData.level,
+            description: riskData.notes,
+            identified_by: '00000000-0000-0000-0000-000000000001' // TODO: Use actual user ID
         })
         .select()
         .single();
@@ -703,9 +723,9 @@ export const addRiskFactor = async (riskData: RiskFormValues): Promise<RiskFacto
         id: data.id,
         studentId: data.student_id,
         studentName: '', // Will be hydrated in context
-        category: data.category,
-        level: data.level,
-        notes: data.notes,
+        category: data.factor,
+        level: data.severity,
+        notes: data.description,
     };
 };
 
@@ -713,9 +733,9 @@ export const editRiskFactor = async (riskId: string, riskData: RiskFormValues): 
     const { data, error } = await supabase
         .from('risk_factors')
         .update({
-            category: riskData.category,
-            level: riskData.level,
-            notes: riskData.notes,
+            factor: riskData.category,
+            severity: riskData.level,
+            description: riskData.notes,
         })
         .eq('id', riskId)
         .select()

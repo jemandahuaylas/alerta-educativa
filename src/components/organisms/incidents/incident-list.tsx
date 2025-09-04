@@ -53,6 +53,9 @@ export default function IncidentList() {
   }, []);
   
   const isRestrictedUser = currentUserProfile?.role === 'Docente' || currentUserProfile?.role === 'Auxiliar';
+  const isAdminRole = currentUserProfile?.role === 'Director' || 
+                     currentUserProfile?.role === 'Subdirector' || 
+                     currentUserProfile?.role === 'Coordinador';
 
   const incidentTypesWithCounts = useMemo(() => {
     const typeCounts: { [key: string]: number } = {};
@@ -70,15 +73,18 @@ export default function IncidentList() {
 
 
   const filteredIncidents = useMemo(() => {
-    const teacherAssignments = assignments.filter(a => a.teacher_id === currentUserProfile?.id);
-    const assignedSectionIds = new Set(teacherAssignments.map(a => a.section_id));
-
     return incidentsWithStudentInfo.filter(incident => {
       const searchMatch = incident.studentName.toLowerCase().includes(searchQuery.toLowerCase());
       const typeMatch = selectedIncidentTypes.length === 0 || 
                         (Array.isArray(incident.incidentTypes) && selectedIncidentTypes.every(type => incident.incidentTypes.includes(type)));
       
-      const sectionMatch = !isRestrictedUser || (incident.sectionId && assignedSectionIds.has(incident.sectionId));
+      // Los roles administrativos ven todos los incidentes, solo docentes y auxiliares tienen restricciones
+      let sectionMatch = true;
+      if (isRestrictedUser && !isAdminRole) {
+        const teacherAssignments = assignments.filter(a => a.teacher_id === currentUserProfile?.id);
+        const assignedSectionIds = new Set(teacherAssignments.map(a => a.section_id));
+        sectionMatch = Boolean(incident.sectionId && assignedSectionIds.has(incident.sectionId));
+      }
 
       return searchMatch && typeMatch && sectionMatch;
     });

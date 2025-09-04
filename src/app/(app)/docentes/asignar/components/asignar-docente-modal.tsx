@@ -11,6 +11,7 @@ import type { UserProfile } from '@/core/domain/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useKeyboardScrollViewport } from '@/hooks/use-keyboard-scroll';
 
 type AsignarDocenteModalProps = {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export function AsignarDocenteModal({
   gradeName,
   sectionName,
 }: AsignarDocenteModalProps) {
+  const containerRef = useKeyboardScrollViewport();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeachers, setSelectedTeachers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,7 +69,7 @@ export function AsignarDocenteModal({
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-md">
+      <ResponsiveDialogContent ref={containerRef} className="sm:max-w-md">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Asignar Personal a {gradeName} - Sección {sectionName}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>

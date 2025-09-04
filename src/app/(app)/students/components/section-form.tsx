@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogDescription, ResponsiveDialogFooter, ResponsiveDialogHeader, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useKeyboardScrollViewport } from '@/hooks/use-keyboard-scroll';
 
 const initialAvailableSections = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
@@ -17,6 +18,7 @@ type SectionFormProps = {
 };
 
 export function SectionForm({ isOpen, onOpenChange, onSave, existingSectionNames }: SectionFormProps) {
+  const containerRef = useKeyboardScrollViewport();
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [customSection, setCustomSection] = useState('');
   const [availableSections, setAvailableSections] = useState(initialAvailableSections);
@@ -54,7 +56,7 @@ export function SectionForm({ isOpen, onOpenChange, onSave, existingSectionNames
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-[425px]">
+      <ResponsiveDialogContent ref={containerRef} className="sm:max-w-[425px]">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Crear Nuevas Secciones</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>

@@ -15,6 +15,7 @@ import { format, subMonths, getMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAppContext } from "@/context/app-context";
 import TeacherDashboard from "./components/teacher-dashboard";
+import AdminManagementDashboard from "./components/admin-management-dashboard";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import { DashboardLoading } from "@/components/dashboard-loading";
@@ -285,10 +286,19 @@ function AdminDashboard() {
 export default function DashboardPage() {
   const { currentUserProfile } = useAppContext();
 
-  const isRestrictedUser = currentUserProfile?.role === 'Docente' || currentUserProfile?.role === 'Auxiliar';
+  const isTeacher = currentUserProfile?.role === 'Docente' || 
+                    currentUserProfile?.role === 'Auxiliar';
 
-  if (isRestrictedUser) {
+  const isAdminRole = currentUserProfile?.role === 'Director' ||
+                      currentUserProfile?.role === 'Subdirector' ||
+                      currentUserProfile?.role === 'Coordinador';
+
+  if (isTeacher) {
     return <TeacherDashboard />;
+  }
+  
+  if (isAdminRole) {
+    return <AdminManagementDashboard />;
   }
   
   return <AdminDashboard />;

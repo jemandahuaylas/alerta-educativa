@@ -50,7 +50,12 @@ export default function GradeList() {
   // New state for search and view
   const [searchQuery, setSearchQuery] = useState('');
   
-  const isRestrictedUser = currentUserProfile?.role === 'Docente' || currentUserProfile?.role === 'Auxiliar';
+  const isRestrictedUser = currentUserProfile?.role === 'Docente' || 
+                           currentUserProfile?.role === 'Auxiliar';
+  
+  const isAdminRole = currentUserProfile?.role === 'Director' ||
+                      currentUserProfile?.role === 'Subdirector' ||
+                      currentUserProfile?.role === 'Coordinador';
   
   // Debug: Verificar perfil del usuario actual
   console.log('Current user profile:', currentUserProfile);
@@ -59,10 +64,12 @@ export default function GradeList() {
   console.log('Button should be visible:', !isRestrictedUser);
 
   const gradesForCurrentUser = useMemo(() => {
-    if (!isRestrictedUser) {
+    // Administradores y roles administrativos ven todas las secciones
+    if (!isRestrictedUser || isAdminRole) {
       return grades;
     }
     
+    // Solo docentes y auxiliares tienen restricciones por asignación
     const teacherAssignments = assignments.filter(a => a.teacher_id === currentUserProfile.id);
     const assignedSectionIds = new Set(teacherAssignments.map(a => a.section_id));
 
@@ -72,7 +79,7 @@ export default function GradeList() {
         sections: grade.sections.filter(section => assignedSectionIds.has(section.id)),
       }))
       .filter(grade => grade.sections.length > 0);
-  }, [grades, assignments, currentUserProfile, isRestrictedUser]);
+  }, [grades, assignments, currentUserProfile, isRestrictedUser, isAdminRole]);
 
   // Filter grades based on search query
   const filteredGrades = useMemo(() => {

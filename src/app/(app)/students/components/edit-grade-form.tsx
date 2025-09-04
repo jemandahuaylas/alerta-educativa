@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogDescription, ResponsiveDialogFooter, ResponsiveDialogHeader, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useKeyboardScrollViewport } from '@/hooks/use-keyboard-scroll';
 import type { Grade } from '@/core/domain/types';
 
 type EditGradeFormProps = {
@@ -15,6 +16,7 @@ type EditGradeFormProps = {
 };
 
 export function EditGradeForm({ isOpen, onOpenChange, onSave, grade }: EditGradeFormProps) {
+  const containerRef = useKeyboardScrollViewport();
   const [gradeName, setGradeName] = useState('');
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export function EditGradeForm({ isOpen, onOpenChange, onSave, grade }: EditGrade
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="sm:max-w-[425px]">
+      <ResponsiveDialogContent className="sm:max-w-[425px]" ref={containerRef}>
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Editar Grado</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
