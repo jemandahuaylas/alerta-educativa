@@ -1,0 +1,141 @@
+/* Estilos para mejorar el comportamiento del teclado virtual en móviles */
+
+/* Prevenir auto-zoom en iOS */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"],
+textarea,
+select {
+  font-size: 16px !important;
+  transform-origin: left top;
+}
+
+/* Asegurar que el viewport sea scrolleable cuando aparece el teclado */
+body {
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Mejorar el comportamiento de los modales en móviles */
+@media (max-width: 768px) {
+  [data-radix-dialog-content] {
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Asegurar que los inputs sean visibles */
+  .input-container {
+    margin-bottom: 20px;
+  }
+  
+  /* Ajustes cuando el teclado está visible */
+  body.keyboard-visible {
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  body.keyboard-visible [data-radix-dialog-content] {
+    max-height: 60vh;
+  }
+}
+
+/* Estilos específicos para iOS */
+body.ios {
+  -webkit-overflow-scrolling: touch;
+}
+
+body.ios input:focus,
+body.ios textarea:focus {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Estilos específicos para Android */
+body.android {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+body.android input:focus,
+body.android textarea:focus {
+  scroll-margin-top: 100px;
+}
+
+/* Estilos específicos para Chrome en Android */
+body.android.chrome input:focus,
+body.android.chrome textarea:focus {
+  scroll-margin-top: 120px;
+}
+
+/* Ajustes generales para dispositivos móviles */
+body.mobile {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* Mejorar el scroll suave en móviles */
+body.mobile * {
+  scroll-behavior: smooth;
+}
+
+/* Ajustes para formularios en móviles */
+@media (max-width: 768px) {
+  form {
+    padding-bottom: 50px;
+  }
+  
+  .form-container {
+    padding-bottom: 100px;
+  }
+  
+  /* Espaciado adicional para el último input */
+  form > *:last-child {
+    margin-bottom: 50px;
+  }
+}
+
+/* Utilidad para contenedores que necesitan scroll automático */
+.keyboard-scroll-container {
+  position: relative;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media screen and (max-width: 768px) {
+  .keyboard-scroll-container {
+    padding-bottom: 50vh;
+  }
+}
+
+/* Animaciones suaves para el desplazamiento */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Mejorar la experiencia en formularios largos */
+.form-section {
+  scroll-margin-top: 20px;
+  scroll-margin-bottom: 20px;
+}
+
+/* Estilos para campos de entrada con mejor UX móvil */
+@media screen and (max-width: 768px) {
+  .mobile-input {
+    padding: 12px 16px;
+    font-size: 16px;
+    line-height: 1.5;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  
+  .mobile-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+    transform: translateY(-2px);
+  }
+}

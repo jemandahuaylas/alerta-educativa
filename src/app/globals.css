@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dashboard Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 204 67% 95%; /* Light Blue */
+    --foreground: 210 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 40% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 40% 10%;
+    --primary: 214 100% 59%; /* Blue-500 - matches #3B82F6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 210 40% 10%;
+    --muted: 210 40% 92%;
+    --muted-foreground: 210 40% 45%;
+    --accent: 165 50% 74%; /* Soft Green */
+    --accent-foreground: 165 60% 25%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 40% 88%;
+    --input: 210 40% 88%;
+    --ring: 214 100% 59%; /* Blue-500 - matches #3B82F6 */
+    --chart-1: 214 100% 59%;
+    --chart-2: 165 50% 74%;
+    --chart-3: 210 40% 50%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 210 40% 30%;
+    --sidebar-primary: 214 100% 59%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 204 67% 95%;
+    --sidebar-accent-foreground: 204 70% 40%;
+    --sidebar-border: 210 40% 88%;
+    --sidebar-ring: 214 100% 59%;
+  }
+  .dark {
+    --background: 210 40% 5%;
+    --foreground: 0 0% 98%;
+    --card: 210 40% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 210 40% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 214 100% 59%; /* Blue-500 - matches #3B82F6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 210 40% 15%;
+    --muted-foreground: 210 40% 65%;
+    --accent: 165 50% 74%; /* Soft Green */
+    --accent-foreground: 165 80% 95%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 40% 15%;
+    --input: 210 40% 15%;
+    --ring: 214 100% 59%;
+    --chart-1: 214 100% 59%;
+    --chart-2: 165 50% 74%;
+    --chart-3: 210 40% 50%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 210 40% 10%;
+    --sidebar-foreground: 0 0% 80%;
+    --sidebar-primary: 214 100% 59%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 210 40% 15%;
+    --sidebar-ring: 214 100% 59%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
