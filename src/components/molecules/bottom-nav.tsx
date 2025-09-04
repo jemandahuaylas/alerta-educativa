@@ -24,12 +24,15 @@ function UserProfileSheet() {
 
     const isAdminLevel = ['Admin', 'Director', 'Subdirector', 'Coordinador'].includes(currentUserProfile?.role || '');
 
+
+
     return (
         <Sheet>
             <SheetTrigger asChild>
                 <button
                     type="button"
                     className="inline-flex flex-col items-center justify-center px-2 text-center text-muted-foreground hover:bg-muted group"
+
                 >
                     <User className="w-5 h-5 mb-1" />
                     <span className="text-xs">Perfil</span>
@@ -71,7 +74,7 @@ function MoreMenuSheet() {
     const moreNavItems = allNavItems.slice(3);
 
     if (moreNavItems.length === 0) {
-        return null;
+        return <div className="invisible"></div>;
     }
 
     return (
