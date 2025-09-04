@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from '@/lib/supabase/client';
+import { withTimeout, withRetry, withCache, appCache } from '@/lib/timeout-handler';
 import type { 
   Student, Grade, Section, Assignment, Incident, Permission, RiskFactor, Dropout, NEE, UserProfile
 } from '@/core/domain/types';
@@ -33,145 +34,165 @@ export interface AppData {
 // --- Data Access Layer ---
 
 export async function getAllData(): Promise<AppData> {
-  const profiles = await getProfiles(); // Fetch profiles first
-  const profileMap = new Map(profiles.map(p => [p.id, p.name]));
+  return withCache('app-data', async () => {
+    console.log('🔄 Starting getAllData with optimized queries and timeout protection...');
+    
+    try {
+      // Fetch essential data first with limits to avoid timeout
+      const profiles = await withTimeout(
+        getProfiles(),
+        5000,
+        'fetch profiles'
+      );
+      const profileMap = new Map(profiles.map(p => [p.id, p.name]));
 
-  // Fetch in parallel
-  const [
-    gradesRes, studentsRes, assignmentsRes, incidentsRes, 
-    permissionsRes, neesRes, dropoutsRes, risksRes, settingsRes
-  ] = await Promise.all([
-    supabase.from('grades').select(`id, name, sections (id, name)`).order('name', { ascending: true }),
-    supabase.from('students').select(`id, first_name, last_name, dni, grade_id, section_id`),
-    supabase.from('assignments').select(`id, teacher_id, grade_id, section_id`),
-    supabase.from('incidents').select(`id, student_id, date, incident_types, status, follow_up_notes, registered_by, attended_by, attended_date`).order('date', { ascending: false }),
-    supabase.from('permissions').select(`id, student_id, request_date, permission_types, status`).order('request_date', { ascending: false }),
-    supabase.from('nee_records').select(`id, student_id, diagnosis, evaluation_date, support_plan`).order('evaluation_date', { ascending: false }),
-    supabase.from('dropouts').select(`id, student_id, dropout_date, reason, notes`).order('dropout_date', { ascending: false }),
-    supabase.from('risk_factors').select(`id, student_id, category, level, notes`).order('created_at', { ascending: false }),
-    supabase.from('settings').select('allow_registration, app_name, institution_name, logo_url, primary_color').single(),
-  ]);
+      // Fetch in parallel with limits and timeout protection
+      const [
+        gradesRes, studentsRes, assignmentsRes, incidentsRes, 
+        permissionsRes, neesRes, dropoutsRes, risksRes, settingsRes
+      ] = await withTimeout(
+        Promise.all([
+          supabase.from('grades').select(`id, name, sections (id, name)`).order('name', { ascending: true }),
+          supabase.from('students').select(`id, first_name, last_name, dni, grade_id, section_id`).limit(1000),
+          supabase.from('assignments').select(`id, teacher_id, grade_id, section_id`).limit(500),
+          supabase.from('incidents').select(`id, student_id, date, incident_types, status, follow_up_notes, registered_by, attended_by, attended_date`).order('date', { ascending: false }).limit(200),
+          supabase.from('permissions').select(`id, student_id, request_date, permission_types, status`).order('request_date', { ascending: false }).limit(200),
+          supabase.from('nee_records').select(`id, student_id, diagnosis, evaluation_date, support_plan`).order('evaluation_date', { ascending: false }).limit(200),
+          supabase.from('dropouts').select(`id, student_id, dropout_date, reason, notes`).order('dropout_date', { ascending: false }).limit(200),
+          supabase.from('risk_factors').select(`id, student_id, category, level, notes`).order('created_at', { ascending: false }).limit(200),
+          supabase.from('settings').select('allow_registration, app_name, institution_name, logo_url, primary_color').single(),
+        ]),
+        15000, // 15 second timeout for all parallel queries
+        'fetch all app data'
+      );
+      
+      console.log('✅ Database queries completed successfully');
+      
+      const { data: gradesData, error: gradesError } = gradesRes;
+      if (gradesError) console.error('Error fetching grades:', gradesError);
+      const grades: Grade[] = (gradesData || []).map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        sections: g.sections.sort((a: Section, b: Section) => a.name.localeCompare(b.name))
+      }));
 
-  const { data: gradesData, error: gradesError } = gradesRes;
-  if (gradesError) console.error('Error fetching grades:', gradesError);
-  const grades: Grade[] = (gradesData || []).map((g: any) => ({
-    id: g.id,
-    name: g.name,
-    sections: g.sections.sort((a: Section, b: Section) => a.name.localeCompare(b.name))
-  }));
+      const gradeMap = new Map(grades.map(g => [g.id, g]));
+      const sectionMap = new Map(grades.flatMap(g => g.sections).map(s => [s.id, s]));
 
-  const gradeMap = new Map(grades.map(g => [g.id, g]));
-  const sectionMap = new Map(grades.flatMap(g => g.sections).map(s => [s.id, s]));
+      const { data: studentsData, error: studentsError } = studentsRes;
+      if (studentsError) console.error('Error fetching students:', studentsError);
+      const students: Student[] = (studentsData || []).map((s: any) => {
+        const grade = gradeMap.get(s.grade_id);
+        const section = sectionMap.get(s.section_id);
+        return {
+          id: s.id,
+          first_name: s.first_name, // keep for search
+          last_name: s.last_name,   // keep for search
+          firstName: s.first_name,
+          lastName: s.last_name,
+          name: `${s.first_name} ${s.last_name}`,
+          dni: s.dni,
+          grade: grade?.name ?? 'N/A',
+          section: section?.name ?? 'N/A',
+          gradeId: s.grade_id,
+          sectionId: s.section_id,
+        };
+      });
+      const studentIdMap = new Map(students.map(s => [s.id, s]));
+      
+      const { data: assignmentsData, error: assignmentsError } = assignmentsRes;
+      if (assignmentsError) console.error('Error fetching assignments:', assignmentsError);
+      const assignments: Assignment[] = (assignmentsData || []).map((a: any) => ({
+          id: a.id,
+          teacher_id: a.teacher_id,
+          grade_id: a.grade_id,
+          section_id: a.section_id,
+      }));
 
-  const { data: studentsData, error: studentsError } = studentsRes;
-  if (studentsError) console.error('Error fetching students:', studentsError);
-  const students: Student[] = (studentsData || []).map((s: any) => {
-    const grade = gradeMap.get(s.grade_id);
-    const section = sectionMap.get(s.section_id);
-    return {
-      id: s.id,
-      first_name: s.first_name, // keep for search
-      last_name: s.last_name,   // keep for search
-      firstName: s.first_name,
-      lastName: s.last_name,
-      name: `${s.first_name} ${s.last_name}`,
-      dni: s.dni,
-      grade: grade?.name ?? 'N/A',
-      section: section?.name ?? 'N/A',
-      gradeId: s.grade_id,
-      sectionId: s.section_id,
-    };
+      const { data: incidentsData, error: incidentsError } = incidentsRes;
+      if (incidentsError) console.error('Error fetching incidents:', incidentsError);
+      const incidents: Incident[] = (incidentsData || []).map((i: any) => ({
+          id: i.id,
+          studentId: i.student_id,
+          studentName: studentIdMap.get(i.student_id)?.name ?? 'Estudiante Desconocido',
+          date: i.date,
+          incidentTypes: i.incident_types,
+          status: i.status,
+          followUpNotes: i.follow_up_notes,
+          registeredBy: i.registered_by,
+          attendedBy: i.attended_by,
+          attendedDate: i.attended_date,
+          attendedById: i.attended_by,
+      }));
+       
+       const { data: permissionsData, error: permissionsError } = permissionsRes;
+       if (permissionsError) console.error('Error fetching permissions:', permissionsError);
+       const permissions: Permission[] = (permissionsData || []).map((p: any) => ({
+           id: p.id,
+           studentId: p.student_id,
+           studentName: studentIdMap.get(p.student_id)?.name ?? 'Estudiante Desconocido',
+           requestDate: p.request_date,
+           permissionTypes: p.permission_types,
+           status: p.status,
+       }));
+
+       const { data: neesData, error: neesError } = neesRes;
+       if (neesError) console.error('Error fetching NEE records:', neesError);
+       const nees: NEE[] = (neesData || []).map((n: any) => ({
+           id: n.id,
+           studentId: n.student_id,
+           studentName: studentIdMap.get(n.student_id)?.name ?? 'Estudiante Desconocido',
+           diagnosis: n.diagnosis,
+           evaluationDate: n.evaluation_date,
+           supportPlan: n.support_plan,
+       }));
+
+       const { data: dropoutsData, error: dropoutsError } = dropoutsRes;
+       if (dropoutsError) console.error('Error fetching dropouts:', dropoutsError);
+       const dropouts: Dropout[] = (dropoutsData || []).map((d: any) => ({
+           id: d.id,
+           studentId: d.student_id,
+           studentName: studentIdMap.get(d.student_id)?.name ?? 'Estudiante Desconocido',
+           dropoutDate: d.dropout_date,
+           reason: d.reason,
+           notes: d.notes,
+       }));
+
+        const { data: risksData, error: risksError } = risksRes;
+        if (risksError) console.error('Error fetching risk factors:', risksError);
+        const risks: RiskFactor[] = (risksData || []).map((r: any) => ({
+            id: r.id,
+            studentId: r.student_id,
+            studentName: studentIdMap.get(r.student_id)?.name ?? 'Estudiante Desconocido',
+            category: r.category,
+            level: r.level,
+            notes: r.notes,
+        }));
+
+        const { data: settingsData, error: settingsError } = settingsRes;
+        if (settingsError) console.error('Error fetching settings:', settingsError);
+
+        const settings: AppSettings = {
+          isRegistrationEnabled: settingsData?.allow_registration ?? false,
+          appName: settingsData?.app_name || "Alerta Educativa",
+          institutionName: settingsData?.institution_name || "Mi Institución",
+          logoUrl: settingsData?.logo_url || "",
+          primaryColor: settingsData?.primary_color || "#1F618D",
+          isDriveConnected: false, // This remains client-side for now
+        };
+
+        return { 
+          grades, students, assignments, incidents, permissions, nees, dropouts, risks, profiles, settings,
+          incidentTypes: initialIncidentTypes,
+          permissionTypes: initialPermissionTypes,
+          dropoutReasons: initialDropoutReasons,
+          neeDiagnosisTypes: initialNeeDiagnosisTypes
+        };
+    } catch (error) {
+      console.error('❌ Error in getAllData:', error);
+      throw error;
+    }
   });
-  const studentIdMap = new Map(students.map(s => [s.id, s]));
-  
-  const { data: assignmentsData, error: assignmentsError } = assignmentsRes;
-  if (assignmentsError) console.error('Error fetching assignments:', assignmentsError);
-  const assignments: Assignment[] = (assignmentsData || []).map((a: any) => ({
-      id: a.id,
-      teacher_id: a.teacher_id,
-      grade_id: a.grade_id,
-      section_id: a.section_id,
-  }));
-
-  const { data: incidentsData, error: incidentsError } = incidentsRes;
-  if (incidentsError) console.error('Error fetching incidents:', incidentsError);
-  const incidents: Incident[] = (incidentsData || []).map((i: any) => ({
-      id: i.id,
-      studentId: i.student_id,
-      studentName: studentIdMap.get(i.student_id)?.name ?? 'Estudiante Desconocido',
-      date: i.date,
-      incidentTypes: i.incident_types,
-      status: i.status,
-      followUpNotes: i.follow_up_notes,
-      registeredBy: profileMap.get(i.registered_by),
-      attendedBy: profileMap.get(i.attended_by),
-      attendedDate: i.attended_date,
-      attendedById: i.attended_by,
-  }));
-  
-  const { data: permissionsData, error: permissionsError } = permissionsRes;
-  if (permissionsError) console.error('Error fetching permissions:', permissionsError);
-  const permissions: Permission[] = (permissionsData || []).map((p: any) => ({
-      id: p.id,
-      studentId: p.student_id,
-      studentName: studentIdMap.get(p.student_id)?.name ?? 'Estudiante Desconocido',
-      requestDate: p.request_date,
-      permissionTypes: p.permission_types,
-      status: p.status,
-  }));
-
-  const { data: neesData, error: neesError } = neesRes;
-  if (neesError) console.error('Error fetching NEE records:', neesError);
-  const nees: NEE[] = (neesData || []).map((n: any) => ({
-      id: n.id,
-      studentId: n.student_id,
-      studentName: studentIdMap.get(n.student_id)?.name ?? 'Estudiante Desconocido',
-      diagnosis: n.diagnosis,
-      evaluationDate: n.evaluation_date,
-      supportPlan: n.support_plan,
-  }));
-
-  const { data: dropoutsData, error: dropoutsError } = dropoutsRes;
-  if (dropoutsError) console.error('Error fetching dropouts:', dropoutsError);
-  const dropouts: Dropout[] = (dropoutsData || []).map((d: any) => ({
-      id: d.id,
-      studentId: d.student_id,
-      studentName: studentIdMap.get(d.student_id)?.name ?? 'Estudiante Desconocido',
-      dropoutDate: d.dropout_date,
-      reason: d.reason,
-      notes: d.notes,
-  }));
-
-  const { data: risksData, error: risksError } = risksRes;
-  if (risksError) console.error('Error fetching risk factors:', risksError);
-  const risks: RiskFactor[] = (risksData || []).map((r: any) => ({
-      id: r.id,
-      studentId: r.student_id,
-      studentName: studentIdMap.get(r.student_id)?.name ?? 'Estudiante Desconocido',
-      category: r.category,
-      level: r.level,
-      notes: r.notes,
-  }));
-
-  const { data: settingsData, error: settingsError } = settingsRes;
-  if (settingsError) console.error('Error fetching settings:', settingsError);
-
-  const settings: AppSettings = {
-    isRegistrationEnabled: settingsData?.allow_registration ?? false,
-    appName: settingsData?.app_name || "Alerta Educativa",
-    institutionName: settingsData?.institution_name || "Mi Institución",
-    logoUrl: settingsData?.logo_url || "",
-    primaryColor: settingsData?.primary_color || "#1F618D",
-    isDriveConnected: false, // This remains client-side for now
-  };
-
-  return { 
-    grades, students, assignments, incidents, permissions, nees, dropouts, risks, profiles, settings,
-    incidentTypes: initialIncidentTypes,
-    permissionTypes: initialPermissionTypes,
-    dropoutReasons: initialDropoutReasons,
-    neeDiagnosisTypes: initialNeeDiagnosisTypes
-  };
 }
 
 
@@ -179,36 +200,51 @@ export async function getAllData(): Promise<AppData> {
 
 // Students
 export const addStudent = async (studentData: Omit<StudentFormValues, 'id'>, grade: Grade, section: Section): Promise<Student | null> => {
-    const { data, error } = await supabase
-        .from('students')
-        .insert({
-            first_name: studentData.firstName,
-            last_name: studentData.lastName,
-            dni: studentData.dni,
-            grade_id: grade.id,
-            section_id: section.id,
-        })
-        .select()
-        .single();
+    console.log(`🔄 Adding student ${studentData.firstName} ${studentData.lastName} with timeout protection...`);
     
-    if (error) {
-        console.error('Error adding student:', error);
+    try {
+        // Create a promise with timeout protection
+        const insertPromise = supabase
+            .from('students')
+            .insert({
+                first_name: studentData.firstName,
+                last_name: studentData.lastName,
+                dni: studentData.dni,
+                grade_id: grade.id,
+                section_id: section.id,
+            })
+            .select()
+            .single();
+            
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Student creation timeout after 8 seconds')), 8000)
+        );
+        
+        const { data, error } = await Promise.race([insertPromise, timeoutPromise]) as any;
+        
+        if (error) {
+            console.error('❌ Error adding student:', error);
+            return null;
+        }
+
+        console.log(`✅ Successfully created student: ${data.first_name} ${data.last_name}`);
+        return {
+            id: data.id,
+            first_name: data.first_name,
+            last_name: data.last_name,
+            firstName: data.first_name,
+            lastName: data.last_name,
+            name: `${data.first_name} ${data.last_name}`,
+            dni: data.dni,
+            grade: grade.name,
+            section: section.name,
+            gradeId: data.grade_id,
+            sectionId: data.section_id,
+        };
+    } catch (error) {
+        console.error('❌ Timeout or error in addStudent:', error);
         return null;
     }
-    
-    return {
-        id: data.id,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        name: `${data.first_name} ${data.last_name}`,
-        dni: data.dni,
-        grade: grade.name,
-        section: section.name,
-        gradeId: data.grade_id,
-        sectionId: data.section_id,
-    };
 };
 
 export const editStudent = async (studentId: string, studentData: StudentFormValues): Promise<Partial<Student> | null> => {
@@ -305,21 +341,36 @@ export const importStudents = async (
     return { importedStudents, skippedCount };
 };
 
-// Grades and Sections
+// Grades and Sections - Optimized with timeout protection and retry
 export const addBulkGrades = async (gradeNames: string[]): Promise<Grade[] | null> => {
-    const newGradesToInsert = gradeNames.map(name => ({ name }));
-    
-    const { data, error } = await supabase
-        .from('grades')
-        .insert(newGradesToInsert)
-        .select();
+    return withRetry(async () => {
+        console.log(`🔄 Adding ${gradeNames.length} grades with timeout protection...`);
+        
+        const newGradesToInsert = gradeNames.map(name => ({ name }));
+        
+        const [{ data, error }] = await withTimeout(
+            Promise.all([
+                supabase
+                    .from('grades')
+                    .insert(newGradesToInsert)
+                    .select()
+            ]),
+            8000,
+            'create grades'
+        ) as any;
 
-    if (error) {
-        console.error('Supabase error in addBulkGrades:', error);
-        return null;
-    }
-    
-    return data.map(g => ({...g, sections: []}));
+        if (error) {
+            console.error('❌ Supabase error in addBulkGrades:', error);
+            throw new Error(`Failed to create grades: ${error.message}`);
+        }
+        
+        console.log(`✅ Successfully created ${data?.length || 0} grades`);
+        
+        // Clear cache after successful creation
+        appCache.clear();
+        
+        return data.map((g: any) => ({...g, sections: []}));
+    }, 2, 1000, 'add bulk grades');
 };
 
 export const editGradeName = async (gradeId: string, newName: string): Promise<boolean> => {
@@ -341,18 +392,34 @@ export const deleteGrade = async (gradeId: string): Promise<boolean> => {
 };
 
 export const addBulkSections = async (gradeId: string, sectionNames: string[]): Promise<Section[] | null> => {
-    const newSectionsToInsert = sectionNames.map(name => ({ name, grade_id: gradeId }));
-
-    const { data, error } = await supabase
-        .from('sections')
-        .insert(newSectionsToInsert)
-        .select();
+    console.log(`🔄 Adding ${sectionNames.length} sections to grade ${gradeId} with timeout protection...`);
     
-    if (error) {
-        console.error('Error adding sections:', error);
+    try {
+        const newSectionsToInsert = sectionNames.map(name => ({ name, grade_id: gradeId }));
+
+        // Create a promise with timeout protection
+        const insertPromise = supabase
+            .from('sections')
+            .insert(newSectionsToInsert)
+            .select();
+            
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Section creation timeout after 8 seconds')), 8000)
+        );
+        
+        const { data, error } = await Promise.race([insertPromise, timeoutPromise]) as any;
+        
+        if (error) {
+            console.error('❌ Error adding sections:', error);
+            return null;
+        }
+        
+        console.log(`✅ Successfully created ${data?.length || 0} sections`);
+        return data;
+    } catch (error) {
+        console.error('❌ Timeout or error in addBulkSections:', error);
         return null;
     }
-    return data;
 };
 
 export const deleteSection = async (sectionId: string): Promise<boolean> => {

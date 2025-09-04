@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AppProvider } from '@/context/app-context';
 import { SettingsProvider } from '@/context/settings-context';
 import { AppLayoutClient } from './app-layout-client';
+import { LoadingWrapper } from '@/components/loading-wrapper';
 
 export const metadata: Metadata = {
   title: 'Alerta Educativa',
@@ -26,10 +27,12 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <AppProvider>
           <SettingsProvider>
-            <AppLayoutClient>
-              {children}
-            </AppLayoutClient>
-            <Toaster />
+            <LoadingWrapper>
+              <AppLayoutClient>
+                {children}
+              </AppLayoutClient>
+              <Toaster />
+            </LoadingWrapper>
           </SettingsProvider>
         </AppProvider>
       </body>

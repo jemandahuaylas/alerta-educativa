@@ -19,6 +19,8 @@ type GradeListCardProps = {
   onEditGrade: (grade: Grade) => void;
   onDeleteGrade: (gradeId: string) => void;
   onAddSection: (gradeId: string) => void;
+  onEditSection?: (section: Section) => void;
+  onDeleteSection?: (sectionId: string) => void;
 };
 
 export default function GradeListCard({
@@ -28,6 +30,8 @@ export default function GradeListCard({
   onEditGrade,
   onDeleteGrade,
   onAddSection,
+  onEditSection,
+  onDeleteSection,
 }: GradeListCardProps) {
   const { students } = useStudents();
   const totalStudents = students.filter(student => student.gradeId === grade.id).length;
@@ -37,7 +41,7 @@ export default function GradeListCard({
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="hover:shadow-md transition-all duration-200 border-2 border-transparent hover:border-primary/20 w-full max-w-full overflow-hidden">
         <CollapsibleTrigger asChild>
-          <CardHeader className="pb-3 cursor-pointer hover:bg-accent/50 transition-colors rounded-t-lg">
+          <CardHeader className="pb-3 cursor-pointer transition-colors rounded-t-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-1">
                 <div className="p-2 rounded-lg bg-primary/10">
@@ -108,31 +112,55 @@ export default function GradeListCard({
                     ).length;
                     
                     return (
-                      <Link 
-                        key={section.id} 
-                        href={`/students/section/${grade.id}/${section.id}`}
-                        className="block"
-                      >
-                        <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/80 transition-all duration-200 hover:shadow-sm active:scale-[0.98]">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                              {section.name}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium">Sección {section.name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {sectionStudents} estudiante{sectionStudents !== 1 ? 's' : ''}
-                              </div>
+                      <div key={section.id} className="flex items-center justify-between p-3 rounded-lg border transition-all duration-200">
+                        <Link 
+                          href={`/students/section/${grade.id}/${section.id}`}
+                          className="flex items-center gap-3 flex-1 hover:bg-accent/30 rounded-md p-2 -m-2 transition-colors"
+                        >
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                            {section.name}
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">Sección {section.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {sectionStudents} estudiante{sectionStudents !== 1 ? 's' : ''}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">
-                              {sectionStudents}
-                            </Badge>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </div>
-                      </Link>
+                          <Badge variant="secondary" className="text-xs">
+                            {sectionStudents}
+                          </Badge>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </Link>
+                        {!isRestrictedUser && (onEditSection || onDeleteSection) && (
+                          <ResponsiveDropdownMenu>
+                            <ResponsiveDropdownMenuTrigger asChild>
+                              <Button 
+                                aria-haspopup="true" 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-8 w-8 ml-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </ResponsiveDropdownMenuTrigger>
+                            <ResponsiveDropdownMenuContent>
+                              <ResponsiveDropdownMenuLabel>Acciones de Sección</ResponsiveDropdownMenuLabel>
+                              {onEditSection && (
+                                <ResponsiveDropdownMenuItem onSelect={(e) => { e.preventDefault(); onEditSection(section); }}>
+                                  <Edit className="mr-2 h-4 w-4" /> Editar
+                                </ResponsiveDropdownMenuItem>
+                              )}
+                              {onDeleteSection && (
+                                <ResponsiveDropdownMenuItem onSelect={(e) => { e.preventDefault(); onDeleteSection(section.id); }} className="text-destructive">
+                                  <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                                </ResponsiveDropdownMenuItem>
+                              )}
+                            </ResponsiveDropdownMenuContent>
+                          </ResponsiveDropdownMenu>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

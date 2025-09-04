@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,8 +17,7 @@ import FloatingActionButton from '@/components/molecules/floating-action-button'
 import { EditSectionForm } from './edit-section-form';
 import { useAppContext } from '@/context/app-context';
 import { usePersonnel } from '@/hooks/use-teachers';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import GradeTable from './grade-table';
+import GradeListCard from './grade-list-card';
 
 export default function GradeList() {
   console.log('GradeList component is rendering!');
@@ -33,7 +32,7 @@ export default function GradeList() {
     editSectionName,
   } = useGradesAndSections();
   const { students } = useStudents();
-  const { currentUserProfile } = useAppContext();
+  const { currentUserProfile, isLoading } = useAppContext();
   const { assignments } = usePersonnel();
   
   console.log('Hooks loaded, currentUserProfile:', currentUserProfile);
@@ -108,8 +107,13 @@ export default function GradeList() {
   };
 
   const handleSaveBulkGrades = async (gradeNames: string[]) => {
-    await addBulkGrades(gradeNames);
-    setIsGradeFormOpen(false);
+    try {
+      await addBulkGrades(gradeNames);
+      setIsGradeFormOpen(false);
+    } catch (error) {
+      console.error('Error creating grades:', error);
+      // El error se maneja en el contexto con el sistema de loading optimizado
+    }
   };
 
   const handleSaveGrade = async (gradeId: string, newName: string) => {
@@ -141,9 +145,14 @@ export default function GradeList() {
 
   const handleSaveBulkSections = async (sectionNames: string[]) => {
     if (!targetGradeId) return;
-    await addBulkSections(targetGradeId, sectionNames);
-    setIsSectionFormOpen(false);
-    setTargetGradeId(null);
+    try {
+      await addBulkSections(targetGradeId, sectionNames);
+      setIsSectionFormOpen(false);
+      setTargetGradeId(null);
+    } catch (error) {
+      console.error('Error creating sections:', error);
+      // El error se maneja en el contexto con el sistema de loading optimizado
+    }
   };
   
   const existingGradeNames = grades.map(g => g.name);
@@ -227,41 +236,47 @@ export default function GradeList() {
         </div>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Grado</TableHead>
-              <TableHead>Estudiantes</TableHead>
-              <TableHead>Secciones</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredGrades.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  {searchQuery ? "No se encontraron grados con esos términos de búsqueda" : "No hay grados disponibles"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredGrades.map((grade) => (
-                <GradeTable
-                  key={grade.id}
-                  grade={grade}
-                  sections={grade.sections}
-                  isRestrictedUser={isRestrictedUser}
-                  onEditGrade={handleEditGrade}
-                  onDeleteGrade={(gradeId) => setGradeToDelete(grades.find(g => g.id === gradeId) || null)}
-                  onAddSection={handleAddSection}
-                  onEditSection={(section) => handleEditSection(section, grade.id)}
-                  onDeleteSection={handleDeleteSectionClick}
-                />
-              ))
+      {filteredGrades.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="mx-auto max-w-md">
+            <div className="mx-auto h-12 w-12 text-muted-foreground mb-4">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              {searchQuery ? "No se encontraron grados" : "No hay grados disponibles"}
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              {searchQuery 
+                ? "No se encontraron grados con esos términos de búsqueda" 
+                : "Comienza creando tu primer grado para organizar a los estudiantes"}
+            </p>
+            {!searchQuery && !isRestrictedUser && (
+              <Button onClick={handleAddGrade} className="mx-auto">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Crear Primer Grado
+              </Button>
             )}
-          </TableBody>
-        </Table>
-      </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:gap-6">
+          {filteredGrades.map((grade) => (
+            <GradeListCard
+               key={grade.id}
+               grade={grade}
+               sections={grade.sections}
+               isRestrictedUser={isRestrictedUser}
+               onEditGrade={handleEditGrade}
+               onDeleteGrade={(gradeId) => setGradeToDelete(grades.find(g => g.id === gradeId) || null)}
+               onAddSection={handleAddSection}
+               onEditSection={(section) => handleEditSection(section, grade.id)}
+               onDeleteSection={handleDeleteSectionClick}
+             />
+          ))}
+        </div>
+      )}
 
       {!isRestrictedUser && <FloatingActionButton onClick={handleAddGrade} />}
     </>

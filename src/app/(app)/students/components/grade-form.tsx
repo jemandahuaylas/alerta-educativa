@@ -2,11 +2,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Check } from 'lucide-react';
+import { Plus, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useAppContext } from '@/context/app-context';
 import { cn } from '@/lib/utils';
 
 const initialAvailableGrades = ['1ro', '2do', '3ro', '4to', '5to', '6to'];
@@ -19,6 +20,7 @@ type GradeFormProps = {
 };
 
 export default function GradeForm({ isOpen, onOpenChange, onSave, existingGradeNames }: GradeFormProps) {
+  const { isLoading } = useAppContext();
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [customGrade, setCustomGrade] = useState('');
   const [availableGrades, setAvailableGrades] = useState(() => 
@@ -157,9 +159,16 @@ export default function GradeForm({ isOpen, onOpenChange, onSave, existingGradeN
           </Button>
           <Button 
             onClick={handleSubmit}
-            disabled={selectedGrades.length === 0}
+            disabled={selectedGrades.length === 0 || isLoading}
           >
-            Crear Grados ({selectedGrades.length})
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creando...
+              </>
+            ) : (
+              `Crear Grados (${selectedGrades.length})`
+            )}
           </Button>
         </div>
       </div>

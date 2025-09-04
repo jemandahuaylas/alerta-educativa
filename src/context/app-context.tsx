@@ -7,6 +7,7 @@ import type {
 } from '@/core/domain/types';
 import * as authService from '@/core/services/auth-service';
 import { supabase } from '@/lib/supabase/client';
+import { useOptimizedLoading } from '@/components/ui/optimized-loading';
 import { 
     getAllData, AppData, addStudent as addStudentService,
     editStudent as editStudentService, deleteStudent as deleteStudentService,
@@ -40,6 +41,16 @@ interface AppContextType extends Omit<AppData, 'grades' | 'assignments' | 'nees'
   session: Session | null;
   currentUserProfile: UserProfile | null;
   setSession: (session: Session | null) => void;
+  
+  // Loading states
+  loadingSteps: any[];
+  currentStep: string | undefined;
+  loadingError: string | null;
+  startLoading: (steps?: any[]) => void;
+  updateStep: (stepId: string, status: 'pending' | 'loading' | 'completed' | 'error') => void;
+  setLoadingError: (error: string) => void;
+  finishLoading: () => void;
+  retryOperation: () => void;
   addStudent: (studentData: Omit<StudentFormValues, 'id'>, grade: Grade, section: Section) => Promise<void>;
   editStudent: (studentId: string, studentData: StudentFormValues) => Promise<void>;
   deleteStudent: (studentId: string) => Promise<void>;
@@ -82,6 +93,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const {
+    isLoading: optimizedLoading,
+    steps: loadingSteps,
+    currentStep,
+    error: loadingError,
+    startLoading,
+    updateStep,
+    setLoadingError,
+    finishLoading,
+    retry
+  } = useOptimizedLoading();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -165,6 +187,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     session,
     currentUserProfile,
     setSession,
+    
+    // Loading states
+    loadingSteps,
+    currentStep,
+    loadingError,
+    startLoading,
+    updateStep,
+    setLoadingError,
+    finishLoading,
+    retryOperation: retry,
     addStudent: async (studentData, grade, section) => {
         const newStudent = await addStudentService(studentData, grade, section);
         if (newStudent) {
@@ -195,9 +227,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return null;
     },
     addBulkGrades: async (gradeNames) => {
-        const newGrades = await addBulkGradesService(gradeNames);
-        if (newGrades) {
-            updateState(s => ({ ...s, grades: [...s.grades, ...newGrades].sort((a, b) => a.name.localeCompare(b.name)) }));
+        const steps = gradeNames.map((name, index) => ({
+            id: `grade-${index}`,
+            label: `Creando grado: ${name}`,
+            status: 'pending' as const
+        }));
+        
+        startLoading(steps);
+        
+        try {
+            const newGrades = await addBulkGradesService(gradeNames);
+            if (newGrades) {
+                updateState(s => ({ ...s, grades: [...s.grades, ...newGrades].sort((a, b) => a.name.localeCompare(b.name)) }));
+            }
+            finishLoading();
+        } catch (error) {
+            setLoadingError(error instanceof Error ? error.message : 'Error al crear grados');
         }
     },
     editGradeName: async (gradeId, newName) => {
@@ -213,17 +258,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     },
     addBulkSections: async (gradeId, sectionNames) => {
-        const newSections = await addBulkSectionsService(gradeId, sectionNames);
-        if (newSections) {
-            updateState(s => ({
-                ...s,
-                grades: s.grades.map(g => {
-                    if (g.id === gradeId) {
-                        return { ...g, sections: [...g.sections, ...newSections].sort((a, b) => a.name.localeCompare(b.name)) };
-                    }
-                    return g;
-                }),
-            }));
+        const steps = sectionNames.map((name, index) => ({
+            id: `section-${index}`,
+            label: `Creando sección: ${name}`,
+            status: 'pending' as const
+        }));
+        
+        startLoading(steps);
+        
+        try {
+            const newSections = await addBulkSectionsService(gradeId, sectionNames);
+            if (newSections) {
+                updateState(s => ({
+                    ...s,
+                    grades: s.grades.map(g => {
+                        if (g.id === gradeId) {
+                            return { ...g, sections: [...g.sections, ...newSections].sort((a, b) => a.name.localeCompare(b.name)) };
+                        }
+                        return g;
+                    }),
+                }));
+            }
+            finishLoading();
+        } catch (error) {
+            setLoadingError(error instanceof Error ? error.message : 'Error al crear secciones');
         }
     },
     deleteSection: async (gradeId, sectionId) => {
