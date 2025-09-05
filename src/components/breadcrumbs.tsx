@@ -79,7 +79,7 @@ const Breadcrumbs = () => {
             {(isLast || !breadcrumb.isLink) ? (
               <span className="font-medium text-foreground">{breadcrumb.name}</span>
             ) : (
-              <Link href={breadcrumb.path} className="hover:text-foreground">
+              <Link href={breadcrumb.path} className="">
                 {breadcrumb.name}
               </Link>
             )}

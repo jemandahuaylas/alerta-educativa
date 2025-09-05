@@ -26,7 +26,7 @@ type StudentSummary = {
 
 const GridViewCard = ({ item: summary, onClick }: { item: StudentSummary, onClick: (name: string) => void}) => (
     <Card 
-        className="shadow-sm hover:shadow-lg hover:border-accent transition-all rounded-xl group cursor-pointer border-2 border-transparent"
+        className="shadow-sm rounded-xl group cursor-pointer border-2 border-transparent"
         onClick={() => onClick(summary.studentName)}
     >
         <CardContent className="p-4 flex flex-col items-center text-center gap-3">
@@ -52,7 +52,7 @@ const GridViewCard = ({ item: summary, onClick }: { item: StudentSummary, onClic
 
 const ListViewCard = ({ item: summary, onClick }: { item: StudentSummary, onClick: (name: string) => void}) => (
     <Card 
-        className="shadow-sm hover:shadow-md transition-shadow p-4 cursor-pointer"
+        className="shadow-sm p-4 cursor-pointer"
         onClick={() => onClick(summary.studentName)}
     >
         <div className="flex items-center justify-between gap-4">

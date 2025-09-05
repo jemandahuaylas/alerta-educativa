@@ -172,10 +172,49 @@ export const getCurrentUser = async () => {
 export const getSession = async () => {
     try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
+        
+        if (error) {
+            console.error("Session error:", error);
+            
+            // Si es un error de refresh token, limpiar la sesión
+            if (error.message?.includes('Invalid Refresh Token') || 
+                error.message?.includes('Refresh Token Not Found')) {
+                console.warn('🔄 Refresh token error detected in getSession, clearing auth...');
+                
+                try {
+                    // Intentar limpiar la sesión corrupta
+                    await supabase.auth.signOut();
+                } catch (signOutError) {
+                    console.warn('Sign out failed during session cleanup:', signOutError);
+                }
+                
+                return null;
+            }
+            
+            throw error;
+        }
+        
         return session;
-    } catch (error) {
-        console.error("Error getting session, user might be logged out:", error);
+    } catch (error: any) {
+        console.error("Error getting session:", error);
+        
+        // Manejar errores de refresh token
+        if (error?.message?.includes('Invalid Refresh Token') || 
+            error?.message?.includes('Refresh Token Not Found')) {
+            console.warn('🔄 Refresh token error in getSession catch block');
+            
+            // Limpiar storage local
+            try {
+                Object.keys(localStorage).forEach(key => {
+                    if (key.includes('supabase') || key.includes('sb-') || key.includes('auth')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+            } catch (storageError) {
+                console.warn('Error clearing localStorage:', storageError);
+            }
+        }
+        
         return null;
     }
 };
@@ -392,6 +431,97 @@ export const signUpAlternative = async ({ name, email, role, password, dni }: Us
         return data.user;
     } catch (error) {
         console.error(`❌ Error in signUpAlternative for ${email}:`, error);
+        throw error;
+    }
+};
+
+// Create user without affecting current session (for admin user creation)
+export const createUserWithoutSessionChange = async ({ name, email, role, password, dni }: UserProfileFormValues) => {
+    console.log(`🔐 createUserWithoutSessionChange called for: ${email}`);
+    
+    if (!password) {
+        throw new Error("Password is required for sign up.");
+    }
+    
+    // Store current session to restore it later
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentSession = sessionData.session;
+    
+    console.log(`📋 Current session exists: ${!!currentSession}`);
+    
+    try {
+        const userData = {
+            email: email.toLowerCase().trim(),
+            password,
+            options: {
+                data: {
+                    name: name.trim(),
+                    role,
+                    dni: role === 'Docente' || role === 'Auxiliar' ? dni?.trim() : undefined,
+                },
+            },
+        };
+        
+        console.log(`📤 Creating user with preserved session...`);
+        
+        // Create user with timeout
+        const signUpPromise = supabase.auth.signUp(userData);
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('SignUp timeout after 10 seconds')), 10000)
+        );
+        
+        const { data, error } = await Promise.race([signUpPromise, timeoutPromise]) as any;
+
+        if (error) {
+            if (error.message.includes('already registered') || 
+                error.message.includes('duplicate') ||
+                error.message.includes('already exists')) {
+                console.log(`⏭️ User ${email} already exists, treating as success`);
+                return { id: 'existing-user', email: email };
+            }
+            console.error("❌ Sign up error for", email, ":", error.message);
+            throw new Error(error.message);
+        }
+        
+        console.log(`✅ User created successfully: ${email}`, data.user?.id);
+        
+        // If a new session was created during signup, restore the original session
+        if (currentSession) {
+            try {
+                console.log(`🔄 Restoring original session...`);
+                await supabase.auth.setSession({
+                    access_token: currentSession.access_token,
+                    refresh_token: currentSession.refresh_token
+                });
+                console.log(`✅ Original session restored successfully`);
+            } catch (restoreError) {
+                console.error("❌ Error restoring original session:", restoreError);
+                // If we can't restore the session, at least sign out the new user
+                try {
+                    await supabase.auth.signOut();
+                } catch (signOutError) {
+                    console.error("❌ Error signing out after failed session restore:", signOutError);
+                }
+            }
+        }
+        
+        return data.user;
+    } catch (error) {
+        console.error(`❌ Error in createUserWithoutSessionChange for ${email}:`, error);
+        
+        // Try to restore original session if something went wrong
+        if (currentSession) {
+            try {
+                await supabase.auth.setSession({
+                    access_token: currentSession.access_token,
+                    refresh_token: currentSession.refresh_token
+                });
+                console.log(`🔄 Session restored after error`);
+            } catch (restoreError) {
+                console.error("❌ Failed to restore session after error:", restoreError);
+            }
+        }
+        
         throw error;
     }
 };

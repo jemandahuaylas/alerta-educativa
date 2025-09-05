@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -50,6 +50,8 @@ type DocenteFormProps = {
 
 export function DocenteForm({ isOpen, onOpenChange, onSave, teacher }: DocenteFormProps) {
   const containerRef = useKeyboardScrollViewport();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const form = useForm<PersonnelFormValues>({
     resolver: zodResolver(personnelSchema),
     defaultValues: teacher ? {
@@ -73,8 +75,15 @@ export function DocenteForm({ isOpen, onOpenChange, onSave, teacher }: DocenteFo
     } : { name: '', dni: '', email: '', role: 'Docente', password: '' });
   }, [teacher, isOpen, form]);
 
-  const onSubmit = (data: PersonnelFormValues) => {
-    onSave(data);
+  const onSubmit = async (data: PersonnelFormValues) => {
+    setIsSubmitting(true);
+    try {
+      await onSave(data);
+    } catch (error) {
+      console.error('Error in form submission:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   return (
@@ -158,8 +167,10 @@ export function DocenteForm({ isOpen, onOpenChange, onSave, teacher }: DocenteFo
               )}
             />
             <ResponsiveDialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button type="submit">{teacher ? 'Guardar Cambios' : 'Crear Personal'}</Button>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancelar</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Guardando...' : (teacher ? 'Guardar Cambios' : 'Crear Personal')}
+              </Button>
             </ResponsiveDialogFooter>
           </form>
         </Form>

@@ -15,7 +15,7 @@ type StudentSummary = {
 
 export const IncidentListCard = ({ item: summary, onClick, index }: { item: StudentSummary; onClick: (name: string) => void; index: number; }) => (
     <Card 
-        className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+        className="shadow-sm cursor-pointer"
         onClick={() => onClick(summary.studentName)}
     >
         <div className="p-2 pr-4 grid grid-cols-[auto,1fr,auto] items-center gap-4">

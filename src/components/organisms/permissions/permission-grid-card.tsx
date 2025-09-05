@@ -15,7 +15,7 @@ type StudentSummary = {
 
 export const PermissionGridCard = ({ item: summary, onClick }: { item: StudentSummary; onClick: (name: string) => void }) => (
     <Card 
-        className="shadow-sm hover:shadow-lg hover:border-primary/50 transition-all rounded-xl group cursor-pointer border-2 border-transparent h-full"
+        className="shadow-sm rounded-xl group cursor-pointer border-2 border-transparent h-full"
         onClick={() => onClick(summary.studentName)}
     >
         <CardContent className="p-4 flex flex-col items-center text-center gap-3 justify-center h-full">

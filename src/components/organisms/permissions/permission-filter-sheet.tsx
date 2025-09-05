@@ -68,7 +68,7 @@ export function PermissionFilterSheet({
                 />
                 <Label
                   htmlFor={`filter-${type}`}
-                  className="w-full cursor-pointer rounded-md p-2 hover:bg-accent -my-2 -ml-2 flex items-center justify-between"
+                  className="w-full cursor-pointer rounded-md p-2 -my-2 -ml-2 flex items-center justify-between"
                 >
                   <span>{type}</span>
                   <Badge variant="secondary" className="font-mono">{count}</Badge>

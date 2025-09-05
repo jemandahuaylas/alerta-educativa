@@ -190,7 +190,7 @@ export function PermissionHistoryModal({
             <div className="mb-4 space-y-3">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground" style={{transform: 'translateY(-50%)'}} />
                   <Input
                     placeholder="Buscar por tipo de permiso..."
                     value={searchQuery}
@@ -247,9 +247,9 @@ export function PermissionHistoryModal({
               {paginatedPermissions.map((permission) => {
                 const isExpanded = expandedPermissions.has(permission.id);
                 return (
-                  <Card key={permission.id} className="shadow-sm transition-all duration-200 hover:shadow-md">
+                  <Card key={permission.id} className="shadow-sm">
                     <CardHeader 
-                      className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                      className="p-4 cursor-pointer"
                       onClick={() => togglePermissionExpansion(permission.id)}
                     >
                       <div className="flex items-center justify-between">
@@ -270,7 +270,7 @@ export function PermissionHistoryModal({
                     </CardHeader>
                     
                     {isExpanded && (
-                      <CardContent className="p-4 pt-0 animate-in slide-in-from-top-2 duration-200">
+                      <CardContent className="p-4 pt-0">
                         <time dateTime={permission.requestDate} className="text-xs text-muted-foreground flex items-center gap-2">
                           <CalendarDays className="h-3 w-3" />
                           Solicitado: {new Date(permission.requestDate).toLocaleDateString('es-ES', {
@@ -284,11 +284,11 @@ export function PermissionHistoryModal({
                     )}
                     
                     {isExpanded && permission.status === 'Pendiente' && canApprove && (
-                      <CardFooter className="p-4 pt-0 border-t flex items-center justify-end gap-2 animate-in slide-in-from-top-2 duration-200">
+                      <CardFooter className="p-4 pt-0 border-t flex items-center justify-end gap-2">
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive" 
+                          className="text-destructive" 
                           onClick={(e) => {
                             e.stopPropagation();
                             handleStatusUpdate(permission.id, 'Rechazado');

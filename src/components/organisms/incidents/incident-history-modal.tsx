@@ -246,7 +246,7 @@ export function IncidentHistoryModal({
             <div className="px-6 pb-4 space-y-3">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground" style={{transform: 'translateY(-50%)'}} />
                   <Input
                     placeholder="Buscar en incidentes..."
                     value={searchQuery}
@@ -302,9 +302,9 @@ export function IncidentHistoryModal({
                   {paginatedIncidents.map((incident) => {
                     const isExpanded = expandedIncidents.has(incident.id);
                     return (
-                      <Card key={incident.id} className="shadow-sm transition-all duration-200 hover:shadow-md">
+                      <Card key={incident.id} className="shadow-sm">
                       <CardHeader 
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-4 pb-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-4 pb-2 cursor-pointer"
                         onClick={() => toggleIncidentExpansion(incident.id)}
                       >
                           <div className="flex flex-wrap gap-2 flex-1">
@@ -323,7 +323,7 @@ export function IncidentHistoryModal({
                           </div>
                       </CardHeader>
                       {isExpanded && (
-                        <CardContent className="p-4 pt-2 animate-in slide-in-from-top-2 duration-200">
+                        <CardContent className="p-4 pt-2">
                              <div className="text-xs text-muted-foreground space-y-2">
                                   <div className="flex items-center gap-2">
                                       <User className="h-3 w-3" />
@@ -361,7 +361,7 @@ export function IncidentHistoryModal({
                         </CardContent>
                       )}
                        {isExpanded && incident.status === 'Pendiente' && canApprove && (
-                        <CardFooter className="p-4 pt-0 border-t animate-in slide-in-from-top-2 duration-200">
+                        <CardFooter className="p-4 pt-0 border-t">
                             <Button 
                               size="sm" 
                               className="w-full" 

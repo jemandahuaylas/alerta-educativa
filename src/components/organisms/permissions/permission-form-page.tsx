@@ -232,7 +232,7 @@ export default function PermissionFormPage() {
                           <FormItem>
                               <FormControl>
                                   <div className="flex items-center justify-center w-full">
-                                      <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted">
+                                      <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50">
                                           <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                               <UploadCloud className="w-8 h-8 mb-4 text-muted-foreground" />
                                               <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Haga clic para cargar</span> o arrastre y suelte</p>

@@ -111,7 +111,7 @@ export function StudentSearchModal({ isOpen, onOpenChange, onSelectStudent }: St
                 <div 
                     key={student.id} 
                     onClick={() => onSelectStudent(student)}
-                    className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer"
+                    className="flex items-center justify-between p-2 rounded-md cursor-pointer"
                 >
                     <div className="flex items-center gap-3">
                         <User className="h-5 w-5 text-muted-foreground" />

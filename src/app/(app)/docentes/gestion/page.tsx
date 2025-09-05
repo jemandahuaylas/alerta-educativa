@@ -42,6 +42,7 @@ export default function GestionDocentesPage() {
   const [personnelToDelete, setPersonnelToDelete] = useState<UserProfile | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [visiblePersonnelCount, setVisiblePersonnelCount] = useState(PERSONNEL_PER_PAGE);
 
@@ -64,15 +65,28 @@ export default function GestionDocentesPage() {
     setIsDetailsModalOpen(true);
   };
 
-  const handleSave = async (personnelData: PersonnelFormValues) => {
+  const handleSave = async (personnelData: PersonnelFormValues): Promise<void> => {
     console.log('💾 handleSave called with data:', personnelData);
+    
+    setIsProcessing(true);
+    
+    // Show loading toast
+    const loadingToast = toast({
+      title: personnelData.id ? "Actualizando Personal..." : "Creando Personal...",
+      description: "Por favor espere..."
+    });
     
     try {
         if (personnelData.id) {
             console.log('📝 Editing existing profile:', personnelData.id);
             const result = await editProfile(personnelData.id, personnelData);
             console.log('✅ Edit result:', result);
-            toast({ title: "Personal Actualizado", description: "Los datos del personal han sido actualizados." });
+            
+            // Force refresh profiles to ensure UI updates
+            console.log('🔄 Refreshing profiles after edit...');
+            await refreshProfiles();
+            
+            toast({ title: "Personal Actualizado", description: "Los datos del personal han sido actualizados correctamente." });
         } else {
             console.log('➕ Creating new profile');
             const dataToSave = {
@@ -80,6 +94,14 @@ export default function GestionDocentesPage() {
               password: personnelData.dni,
             };
             await addProfile(dataToSave);
+            
+            // Force refresh profiles to ensure UI updates
+            console.log('🔄 Refreshing profiles after creation...');
+            await refreshProfiles();
+            
+            // Add a small delay to ensure the refresh completes
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             toast({ title: "Personal Creado", description: "El nuevo miembro del personal ha sido añadido y tiene acceso al sistema." });
         }
         console.log('🔒 Closing form modal');
@@ -91,6 +113,8 @@ export default function GestionDocentesPage() {
             title: "Error al guardar",
             description: error instanceof Error ? error.message : "No se pudo guardar el registro.",
         });
+    } finally {
+        setIsProcessing(false);
     }
   };
   
@@ -105,6 +129,8 @@ export default function GestionDocentesPage() {
     console.log('=== STARTING BULK IMPORT PROCESS ===');
     console.log('Total personnel to import:', newPersonnel.length);
     console.log('Personnel data:', newPersonnel);
+    
+    setIsProcessing(true);
     
     // Show initial toast to inform user about the process
     toast({
@@ -217,9 +243,17 @@ export default function GestionDocentesPage() {
       console.log(`Errors: ${result.errors.length}`);
       console.log(`Error details:`, result.errors);
       
-      // Refresh profiles after import
-      console.log('Refreshing profiles after import...');
+      // Force multiple refreshes to ensure UI updates
+      console.log('🔄 Refreshing profiles after import (attempt 1)...');
       await refreshProfiles();
+      
+      // Add delay and second refresh to ensure data consistency
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('🔄 Refreshing profiles after import (attempt 2)...');
+      await refreshProfiles();
+      
+      // Final delay to ensure UI has time to update
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const successMessage = `Se importaron ${result.imported} docentes correctamente.`;
       const skipMessage = result.skipped > 0 ? ` ${result.skipped} registros fueron omitidos.` : '';
@@ -230,6 +264,8 @@ export default function GestionDocentesPage() {
         description: successMessage + skipMessage + errorMessage
       });
       
+      console.log('✅ Import process completed, UI should be updated now');
+      
     } catch (error) {
       console.error('Critical error during bulk import:', error);
       toast({
@@ -239,6 +275,7 @@ export default function GestionDocentesPage() {
       });
     } finally {
       console.log('=== BULK IMPORT PROCESS COMPLETED ===');
+      setIsProcessing(false);
       // Modal will close itself after import completes
     }
   }
@@ -309,17 +346,17 @@ export default function GestionDocentesPage() {
 
   const pageActions = (
     <div className="flex items-center gap-2">
-        <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setIsDownloadModalOpen(true)}>
+        <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setIsDownloadModalOpen(true)} disabled={isProcessing}>
             <Download className="mr-2 h-4 w-4" />
-            Descargar
+            {isProcessing ? "Procesando..." : "Descargar"}
         </Button>
-        <Button variant="outline" className="hidden sm:flex" onClick={() => setIsImportModalOpen(true)}>
+        <Button variant="outline" className="hidden sm:flex" onClick={() => setIsImportModalOpen(true)} disabled={isProcessing}>
           <FileUp className="mr-2 h-4 w-4" />
-          Importar
+          {isProcessing ? "Procesando..." : "Importar"}
         </Button>
-        <Button onClick={handleAdd} className="flex-1 sm:flex-none">
+        <Button onClick={handleAdd} className="flex-1 sm:flex-none" disabled={isProcessing}>
           <PlusCircle className="mr-2 h-4 w-4" />
-          Añadir Personal
+          {isProcessing ? "Procesando..." : "Añadir Personal"}
         </Button>
     </div>
   );

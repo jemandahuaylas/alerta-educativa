@@ -185,47 +185,86 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
-        setSession(session);
         
-        // Si el usuario se desconecta, limpiar datos
-        if (event === 'SIGNED_OUT') {
-          setData(null);
-        }
-        // Si el usuario se conecta, recargar datos
-        else if (event === 'SIGNED_IN' && session) {
-          try {
-            const appData = await getAllData();
-            setData(appData);
-          } catch (error: any) {
-            console.error('Error fetching app data on sign in:', error);
-            if (error.name === 'TimeoutError') {
-              console.warn('⏰ App data fetch timed out on sign in, using fallback data...');
-              // Keep existing data or set minimal data if none exists
-              if (!data) {
-                setData({
-                  students: [],
-                  grades: [],
-                  assignments: [],
-                  incidents: [],
-                  incidentTypes: [],
-                  permissions: [],
-                  permissionTypes: [],
-                  nees: [],
-                  neeDiagnosisTypes: [],
-                  dropouts: [],
-                  dropoutReasons: [],
-                  risks: [],
-                  settings: { 
-                    isRegistrationEnabled: false,
-                    appName: "Alerta Educativa",
-                    institutionName: "Mi Institución",
-                    logoUrl: "",
-                    primaryColor: "#1F618D",
-                    isDriveConnected: false
-                  },
-                  profiles: []
-                });
+        try {
+          setSession(session);
+          
+          // Si el usuario se desconecta, limpiar datos
+          if (event === 'SIGNED_OUT') {
+            console.log('🚪 User signed out, clearing app data...');
+            setData(null);
+          }
+          // Si el usuario se conecta, recargar datos
+          else if (event === 'SIGNED_IN' && session) {
+            console.log('🔑 User signed in, loading app data...');
+            try {
+              const appData = await getAllData();
+              setData(appData);
+            } catch (error: any) {
+              console.error('Error fetching app data on sign in:', error);
+              if (error.name === 'TimeoutError') {
+                console.warn('⏰ App data fetch timed out on sign in, using fallback data...');
+                // Keep existing data or set minimal data if none exists
+                if (!data) {
+                  setData({
+                    students: [],
+                    grades: [],
+                    assignments: [],
+                    incidents: [],
+                    incidentTypes: [],
+                    permissions: [],
+                    permissionTypes: [],
+                    nees: [],
+                    neeDiagnosisTypes: [],
+                    dropouts: [],
+                    dropoutReasons: [],
+                    risks: [],
+                    settings: { 
+                      isRegistrationEnabled: false,
+                      appName: "Alerta Educativa",
+                      institutionName: "Mi Institución",
+                      logoUrl: "",
+                      primaryColor: "#1F618D",
+                      isDriveConnected: false
+                    },
+                    profiles: []
+                  });
+                }
+              } else {
+                throw error;
               }
+            }
+          }
+          // Manejar errores de token
+          else if (event === 'TOKEN_REFRESHED') {
+            console.log('✅ Token refreshed successfully');
+          }
+        } catch (authError: any) {
+          console.error('🔥 Auth state change error:', authError);
+          
+          // Si hay un error de refresh token, limpiar la sesión
+          if (authError?.message?.includes('Invalid Refresh Token') || 
+              authError?.message?.includes('Refresh Token Not Found')) {
+            console.warn('🔄 Refresh token error in auth state change, clearing session...');
+            
+            // Limpiar sesión local
+            setSession(null);
+            setData(null);
+            
+            // Intentar limpiar storage
+            try {
+              await supabase.auth.signOut();
+            } catch (signOutError) {
+              console.warn('Sign out failed during cleanup:', signOutError);
+            }
+            
+            // Redirigir a login si no estamos ya ahí
+            if (typeof window !== 'undefined' && 
+                window.location.pathname !== '/login' && 
+                window.location.pathname !== '/') {
+              setTimeout(() => {
+                window.location.href = '/login';
+              }, 1000);
             }
           }
         }
@@ -531,10 +570,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // The calling function should handle reloading profiles after all imports are done
             return result;
         } else {
-            console.log(`👤 Single user mode - calling signUp`);
-            await authService.signUp(profileData);
+            console.log(`👤 Single user mode - calling createUserWithoutSessionChange to preserve current session`);
+            const result = await authService.createUserWithoutSessionChange(profileData);
+            console.log(`✅ createUserWithoutSessionChange completed for: ${profileData.email}`, result);
+            // Refresh profiles list after creating individual user
             const profiles = await authService.getProfiles();
             updateState(s => ({ ...s, profiles }));
+            return result;
         }
     },
     bulkImportProfiles: async (profilesData) => {

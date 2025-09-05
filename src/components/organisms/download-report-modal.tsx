@@ -54,7 +54,7 @@ export function DownloadReportModal({
             <Button 
                 type="button" 
                 variant="ghost"
-                className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                className="w-full text-destructive"
                 onClick={() => onOpenChange(false)}
             >
                 Cancelar

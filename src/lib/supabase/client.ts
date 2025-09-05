@@ -94,32 +94,90 @@ if (typeof window !== 'undefined') {
     }
   });
 
-  // Manejar errores globales de autenticación
-  window.addEventListener('unhandledrejection', (event) => {
-    if (event.reason?.message?.includes('Invalid Refresh Token') || 
-        event.reason?.message?.includes('Refresh Token Not Found')) {
-      console.warn('🔄 Refresh token error detected, clearing auth storage...');
-      
-      // Limpiar tokens corruptos
-      try {
-        Object.keys(localStorage).forEach(key => {
-          if (key.includes('supabase') || key.includes('sb-')) {
-            localStorage.removeItem(key);
-          }
-        });
-        
-        // Redirigir a login después de limpiar
-        setTimeout(() => {
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
-        }, 1000);
-      } catch (error) {
-        console.error('Error handling refresh token error:', error);
+  // Función para limpiar completamente la autenticación
+  const clearAuthCompletely = async () => {
+    console.warn('🧹 Clearing all authentication data...');
+    
+    try {
+      // Primero intentar sign out normal
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('Sign out failed, proceeding with manual cleanup:', error);
+    }
+    
+    // Limpiar localStorage completamente
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-') || key.includes('auth'))) {
+          keysToRemove.push(key);
+        }
       }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
       
-      // Prevenir que el error se propague
+      // También limpiar sessionStorage
+      const sessionKeysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-') || key.includes('auth'))) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+      
+    } catch (error) {
+      console.error('Error clearing storage:', error);
+    }
+  };
+
+  // Manejar errores globales de autenticación
+  window.addEventListener('unhandledrejection', async (event) => {
+    if (event.reason?.message?.includes('Invalid Refresh Token') || 
+        event.reason?.message?.includes('Refresh Token Not Found') ||
+        event.reason?.message?.includes('AuthApiError')) {
+      console.warn('🔄 Authentication error detected:', event.reason?.message);
+      
+      // Prevenir que el error se propague inmediatamente
       event.preventDefault();
+      
+      // Limpiar autenticación completamente
+      await clearAuthCompletely();
+      
+      // Redirigir a login después de limpiar
+      setTimeout(() => {
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
+          console.log('🔄 Redirecting to login...');
+          window.location.href = '/login';
+        }
+      }, 500);
     }
   });
+  
+  // También manejar errores de fetch que puedan contener errores de auth
+  const originalFetch = window.fetch;
+  window.fetch = async (...args) => {
+    try {
+      const response = await originalFetch(...args);
+      
+      // Si la respuesta contiene errores de autenticación
+      if (!response.ok && response.status === 401) {
+        const text = await response.clone().text();
+        if (text.includes('Invalid Refresh Token') || text.includes('Refresh Token Not Found')) {
+          console.warn('🔄 Auth error in fetch response, clearing session...');
+          await clearAuthCompletely();
+          
+          setTimeout(() => {
+            if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
+              window.location.href = '/login';
+            }
+          }, 500);
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      return originalFetch(...args);
+    }
+  };
 }

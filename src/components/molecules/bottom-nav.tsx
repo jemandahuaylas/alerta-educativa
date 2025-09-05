@@ -31,7 +31,7 @@ function UserProfileSheet() {
             <SheetTrigger asChild>
                 <button
                     type="button"
-                    className="inline-flex flex-col items-center justify-center px-2 text-center text-muted-foreground hover:bg-muted group"
+                    className="inline-flex flex-col items-center justify-center px-2 text-center text-muted-foreground group"
 
                 >
                     <User className="w-5 h-5 mb-1" />
@@ -48,7 +48,7 @@ function UserProfileSheet() {
                         <Button variant="ghost" className="justify-start" onClick={() => router.push('/settings')}>Ajustes</Button>
                     )}
                     <Button variant="ghost" className="justify-start">Soporte</Button>
-                    <Button variant="ghost" className="justify-start text-destructive hover:text-destructive" onClick={handleSignOut}>Cerrar Sesión</Button>
+                    <Button variant="ghost" className="justify-start text-destructive" onClick={handleSignOut}>Cerrar Sesión</Button>
                 </div>
             </SheetContent>
         </Sheet>
@@ -82,7 +82,7 @@ function MoreMenuSheet() {
             <SheetTrigger asChild>
                  <button
                     type="button"
-                    className="inline-flex flex-col items-center justify-center px-2 text-center text-muted-foreground hover:bg-muted group"
+                    className="inline-flex flex-col items-center justify-center px-2 text-center text-muted-foreground group"
                 >
                     <Menu className="w-5 h-5 mb-1" />
                     <span className="text-xs">Más</span>
@@ -99,7 +99,7 @@ function MoreMenuSheet() {
                         key={item.href}
                         href={item.href}
                         onClick={() => setIsMoreMenuOpen(false)}
-                        className="flex items-center gap-4 p-3 -mx-3 rounded-lg text-foreground hover:bg-muted"
+                        className="flex items-center gap-4 p-3 -mx-3 rounded-lg text-foreground"
                     >
                         <item.icon className="w-5 h-5 text-muted-foreground" />
                         <span className="font-medium">{item.label}</span>
@@ -168,7 +168,7 @@ export function BottomNav() {
 
   return (
     <div className={cn(
-        "fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t md:hidden transition-transform duration-300",
+        "fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t md:hidden",
         isVisible ? "translate-y-0" : "translate-y-full"
     )}>
       <div className={cn(
@@ -182,7 +182,7 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "inline-flex flex-col items-center justify-center px-2 text-center hover:bg-muted group",
+                "inline-flex flex-col items-center justify-center px-2 text-center group",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}
             >
