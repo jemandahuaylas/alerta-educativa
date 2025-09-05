@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { useKeyboardScrollViewport } from '@/hooks/use-keyboard-scroll';
 import type { Student } from '@/core/domain/types';
 
 const studentSchema = z.object({
@@ -45,6 +46,7 @@ type StudentFormProps = {
 };
 
 export function StudentForm({ isOpen, onOpenChange, onSave, student }: StudentFormProps) {
+  const containerRef = useKeyboardScrollViewport();
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema),
     defaultValues: student ? {
@@ -71,6 +73,7 @@ export function StudentForm({ isOpen, onOpenChange, onSave, student }: StudentFo
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent 
+        ref={containerRef}
         className="sm:max-w-[425px]"
         onOpenAutoFocus={(e) => {
             e.preventDefault();
