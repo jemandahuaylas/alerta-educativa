@@ -114,39 +114,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         // Fetch data regardless of session for public pages, but restrict sensitive data if not logged in.
         try {
+          console.log('🚀 Starting app data fetch...');
           const appData = await getAllData();
+          console.log('✅ App data loaded successfully');
           setData(appData);
         } catch (error: any) {
-          console.error('Error fetching app data:', error);
-          if (error.name === 'TimeoutError') {
-            console.warn('⏰ App data fetch timed out, retrying with fallback data...');
-            // Set minimal data to prevent app crash
-            setData({
-              students: [],
-              grades: [],
-              assignments: [],
-              incidents: [],
-              incidentTypes: [],
-              permissions: [],
-              permissionTypes: [],
-              nees: [],
-              neeDiagnosisTypes: [],
-              dropouts: [],
-              dropoutReasons: [],
-              risks: [],
-              settings: { 
-                isRegistrationEnabled: false,
-                appName: "Alerta Educativa",
-                institutionName: "Mi Institución",
-                logoUrl: "",
-                primaryColor: "#1F618D",
-                isDriveConnected: false
-              },
-              profiles: []
-            });
+          console.error('❌ Error fetching app data:', error);
+          
+          // Handle different types of errors
+          if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
+            console.warn('⏰ App data fetch timed out, using fallback data...');
+            setLoadingError('La carga de datos está tomando más tiempo del esperado. Usando datos básicos.');
+          } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+            console.warn('🌐 Network error detected, using fallback data...');
+            setLoadingError('Error de conexión. Verificando conectividad...');
           } else {
-            throw error;
+            console.warn('🔧 General error, using fallback data...');
+            setLoadingError('Error al cargar datos. Usando configuración básica.');
           }
+          
+          // Set minimal data to prevent app crash
+          setData({
+            students: [],
+            grades: [],
+            assignments: [],
+            incidents: [],
+            incidentTypes: [],
+            permissions: [],
+            permissionTypes: [],
+            nees: [],
+            neeDiagnosisTypes: [],
+            dropouts: [],
+            dropoutReasons: [],
+            risks: [],
+            settings: { 
+              isRegistrationEnabled: false,
+              appName: "Alerta Educativa",
+              institutionName: "Mi Institución",
+              logoUrl: "",
+              primaryColor: "#1F618D",
+              isDriveConnected: false
+            },
+            profiles: []
+          });
         }
       } catch (error) {
         console.error('Error initializing app:', error);
@@ -198,40 +208,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
           else if (event === 'SIGNED_IN' && session) {
             console.log('🔑 User signed in, loading app data...');
             try {
+              console.log('🔑 Loading data after sign in...');
               const appData = await getAllData();
+              console.log('✅ Data loaded successfully after sign in');
               setData(appData);
             } catch (error: any) {
-              console.error('Error fetching app data on sign in:', error);
-              if (error.name === 'TimeoutError') {
-                console.warn('⏰ App data fetch timed out on sign in, using fallback data...');
-                // Keep existing data or set minimal data if none exists
-                if (!data) {
-                  setData({
-                    students: [],
-                    grades: [],
-                    assignments: [],
-                    incidents: [],
-                    incidentTypes: [],
-                    permissions: [],
-                    permissionTypes: [],
-                    nees: [],
-                    neeDiagnosisTypes: [],
-                    dropouts: [],
-                    dropoutReasons: [],
-                    risks: [],
-                    settings: { 
-                      isRegistrationEnabled: false,
-                      appName: "Alerta Educativa",
-                      institutionName: "Mi Institución",
-                      logoUrl: "",
-                      primaryColor: "#1F618D",
-                      isDriveConnected: false
-                    },
-                    profiles: []
-                  });
-                }
+              console.error('❌ Error fetching app data on sign in:', error);
+              
+              // Handle errors gracefully on sign in
+              if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
+                console.warn('⏰ App data fetch timed out on sign in, using existing or fallback data...');
+                setLoadingError('Carga lenta después del inicio de sesión. Reintentando...');
               } else {
-                throw error;
+                console.warn('🔧 Error on sign in, using existing or fallback data...');
+                setLoadingError('Error al cargar datos después del inicio de sesión.');
+              }
+              
+              // Keep existing data or set minimal data if none exists
+              if (!data) {
+                setData({
+                  students: [],
+                  grades: [],
+                  assignments: [],
+                  incidents: [],
+                  incidentTypes: [],
+                  permissions: [],
+                  permissionTypes: [],
+                  nees: [],
+                  neeDiagnosisTypes: [],
+                  dropouts: [],
+                  dropoutReasons: [],
+                  risks: [],
+                  settings: { 
+                    isRegistrationEnabled: false,
+                    appName: "Alerta Educativa",
+                    institutionName: "Mi Institución",
+                    logoUrl: "",
+                    primaryColor: "#1F618D",
+                    isDriveConnected: false
+                  },
+                  profiles: []
+                });
               }
             }
           }
@@ -329,7 +346,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateStep,
     setLoadingError,
     finishLoading,
-    retryOperation: retry,
+    retryOperation: async () => {
+      console.log('🔄 Retrying data fetch operation...');
+      setLoadingError(null);
+      setIsLoading(true);
+      
+      try {
+        const appData = await getAllData();
+        console.log('✅ Retry successful, data loaded');
+        setData(appData);
+      } catch (error: any) {
+        console.error('❌ Retry failed:', error);
+        if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
+          setLoadingError('La carga sigue siendo lenta. Intenta recargar la página.');
+        } else {
+          setLoadingError('Error persistente. Verifica tu conexión a internet.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
     addStudent: async (studentData, grade, section) => {
         const newStudent = await addStudentService(studentData, grade, section);
         if (newStudent) {

@@ -35,38 +35,65 @@ export interface AppData {
 
 export async function getAllData(): Promise<AppData> {
   return withCache('app-data', async () => {
-    console.log('🔄 Starting getAllData with optimized queries and timeout protection...');
+    console.log('🔄 Starting getAllData with optimized progressive loading...');
     
     return withRetry(async () => {
     
     try {
-      // Fetch essential data first with limits to avoid timeout
-      const profiles = await withTimeout(
-        getProfiles(),
-        5000,
-        'fetch profiles'
+      // Step 1: Fetch essential data first (grades, settings, profiles)
+      console.log('📊 Loading essential data...');
+      const [profiles, gradesRes, settingsRes] = await withTimeout(
+        Promise.all([
+          getProfiles(),
+          supabase.from('grades').select(`id, name, sections (id, name)`).order('name', { ascending: true }),
+          supabase.from('settings').select('allow_registration, app_name, institution_name, logo_url, primary_color').single(),
+        ]),
+        8000, // 8 second timeout for essential data
+        'fetch essential data'
       );
       const profileMap = new Map(profiles.map(p => [p.id, p.name]));
 
-      // Fetch in parallel with limits and timeout protection
+      // Step 2: Fetch students data (most important)
+      console.log('👥 Loading students data...');
+      const studentsRes = await withTimeout(
+        supabase.from('students').select(`id, first_name, last_name, dni, grade_id, section_id`).limit(500),
+        6000, // 6 second timeout for students
+        'fetch students'
+      );
+
+      // Step 3: Fetch remaining data in smaller batches
+      console.log('📋 Loading additional data...');
       const [
-        gradesRes, studentsRes, assignmentsRes, incidentsRes, 
-        permissionsRes, neesRes, dropoutsRes, risksRes, settingsRes
+        assignmentsRes, incidentsRes, permissionsRes
       ] = await withTimeout(
         Promise.all([
-          supabase.from('grades').select(`id, name, sections (id, name)`).order('name', { ascending: true }),
-          supabase.from('students').select(`id, first_name, last_name, dni, grade_id, section_id`).limit(1000),
-          supabase.from('assignments').select(`id, teacher_id, grade_id, section_id`).limit(500),
-          supabase.from('incidents').select(`id, date, incident_types, description, status, registered_by, approved_by, approved_at`).order('date', { ascending: false }).limit(200),
-          supabase.from('permissions').select(`id, student_id, date, type, reason, approved_by`).order('date', { ascending: false }).limit(200),
-          supabase.from('nee_records').select(`id, student_id, diagnosis, evaluation_date, support_plan`).order('evaluation_date', { ascending: false }).limit(200),
-          supabase.from('dropouts').select(`id, student_id, date, reason, notes, reported_by, created_at, updated_at, deleted_at`).order('date', { ascending: false }).limit(200),
-          supabase.from('risk_factors').select(`id, student_id, factor, description, severity, identified_by, created_at, updated_at, deleted_at`).order('created_at', { ascending: false }).limit(200),
-          supabase.from('settings').select('allow_registration, app_name, institution_name, logo_url, primary_color').single(),
+          supabase.from('assignments').select(`id, teacher_id, grade_id, section_id`).limit(300),
+          supabase.from('incidents').select(`id, date, incident_types, description, status, registered_by, approved_by, approved_at`).order('date', { ascending: false }).limit(100),
+          supabase.from('permissions').select(`id, student_id, date, type, reason, approved_by`).order('date', { ascending: false }).limit(100),
         ]),
-        30000, // 30 second timeout for all parallel queries
-        'fetch all app data'
+        8000, // 8 second timeout for batch 1
+        'fetch primary data'
       );
+
+      // Step 4: Fetch optional data (can fail without breaking the app)
+      console.log('🔍 Loading optional data...');
+      let neesRes, dropoutsRes, risksRes;
+      try {
+        [neesRes, dropoutsRes, risksRes] = await withTimeout(
+          Promise.all([
+            supabase.from('nee_records').select(`id, student_id, diagnosis, evaluation_date, support_plan`).order('evaluation_date', { ascending: false }).limit(100),
+            supabase.from('dropouts').select(`id, student_id, date, reason, notes, reported_by, created_at, updated_at, deleted_at`).order('date', { ascending: false }).limit(100),
+            supabase.from('risk_factors').select(`id, student_id, factor, description, severity, identified_by, created_at, updated_at, deleted_at`).order('created_at', { ascending: false }).limit(100),
+          ]),
+          6000, // 6 second timeout for optional data
+          'fetch optional data'
+        );
+      } catch (error) {
+        console.warn('⚠️ Optional data fetch failed, using empty arrays:', error);
+        neesRes = { data: [], error: null };
+        dropoutsRes = { data: [], error: null };
+        risksRes = { data: [], error: null };
+      }
       
       console.log('✅ Database queries completed successfully');
       
@@ -202,7 +229,7 @@ export async function getAllData(): Promise<AppData> {
       console.error('❌ Error in getAllData:', error);
       throw error;
     }
-    }, 2, 2000, 'fetch all app data'); // 2 retries with 2 second base delay
+    }, 1, 1000, 'fetch all app data'); // 1 retry with 1 second delay for faster recovery
   });
 }
 

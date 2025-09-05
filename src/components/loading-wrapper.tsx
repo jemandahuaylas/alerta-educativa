@@ -22,7 +22,7 @@ export function LoadingWrapper({ children }: { children: React.ReactNode }) {
         currentStep={currentStep}
         error={loadingError}
         onRetry={retryOperation}
-        timeout={25000} // 25 seconds timeout
+        timeout={15000} // 15 seconds timeout for faster user feedback
         onTimeout={() => {
           console.warn('Operación demorada detectada');
         }}
